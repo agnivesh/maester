@@ -42,6 +42,17 @@ const config = {
     "@easyops-cn/docusaurus-search-local",
   ],
 
+  plugins: [
+    [
+      "posthog-docusaurus",
+      {
+        apiKey: "phc_VxA235FsdurMGycf9DHjlUeZeIhLuC7r11Ptum0WjRK",
+        appUrl: "https://us.i.posthog.com", // optional, defaults to "https://us.i.posthog.com"
+        enableInDevelopment: false, // optional
+      },
+    ],
+  ],
+
   presets: [
     [
       "classic",
@@ -51,8 +62,19 @@ const config = {
           sidebarPath: "./sidebars.js",
           editUrl: "https://github.com/maester365/maester/tree/main/website",
         },
+        blog: {
+          blogSidebarTitle: 'All posts',
+          blogSidebarCount: 'ALL',
+        },
         theme: {
           customCss: "./src/css/custom.css",
+        },
+        googleTagManager: {
+          containerId: 'GTM-TXV8GGWT',
+        },
+        gtag: {
+          trackingID: 'G-LKBLBBCLH0',
+          anonymizeIP: true,
         },
       }),
     ],
@@ -88,6 +110,7 @@ const config = {
             docId: "commands/commands-overview",
             label: "Commands",
           },
+          { to: 'blog', label: 'Blog', position: 'left' },
           {
             "aria-label": "GitHub Repository",
             className: "navbar--github-link",
@@ -113,7 +136,7 @@ const config = {
             items: [
               {
                 label: "Discord",
-                href: "https://discord.maester.dev",
+                href: "https://discord.maester.dev/",
               },
               {
                 label: "Twitter",
@@ -125,13 +148,17 @@ const config = {
             title: "More",
             items: [
               {
+                label: "Bluesky",
+                href: "https://bsky.app/profile/maester.dev",
+              },
+              {
                 label: "GitHub",
                 href: "https://github.com/maester365/maester",
               },
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} Maester`,
+        copyright: `Copyright © ${new Date().getFullYear()} Maester Team`,
       },
       prism: {
         theme: prismThemes.shadesOfPurple,

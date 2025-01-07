@@ -10,13 +10,20 @@
 
  .Example
   Test-MtCaMfaForAdmin
-#>
 
-Function Test-MtCaMfaForAdmin {
+.LINK
+    https://maester.dev/docs/commands/Test-MtCaMfaForAdmin
+#>
+function Test-MtCaMfaForAdmin {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '', Justification = 'PolicyIncludesAllRoles is used in the condition.')]
     [CmdletBinding()]
     [OutputType([bool])]
     param ()
+
+    if ( ( Get-MtLicenseInformation EntraID ) -eq "Free" ) {
+        Add-MtTestResultDetail -SkippedBecause NotLicensedEntraIDP1
+        return $null
+    }
 
     $AdministrativeRolesToCheck = @(
         "62e90394-69f5-4237-9190-012177145e10",
@@ -42,8 +49,8 @@ Function Test-MtCaMfaForAdmin {
         $PolicyIncludesAllRoles = $true
         $AdministrativeRolesToCheck | ForEach-Object {
             if ( ( $_ -notin $policy.conditions.users.includeRoles `
-              -and $policy.conditions.users.includeUsers -ne 'All' ) `
-              -or $_ -in $policy.conditions.users.excludeRoles `
+                        -and $policy.conditions.users.includeUsers -notcontains 'All' ) `
+                    -or $_ -in $policy.conditions.users.excludeRoles `
             ) {
                 $PolicyIncludesAllRoles = $false
             }

@@ -14,12 +14,15 @@
     Test-MtConnection -Service All
 
     Checks if the current session is connected to all services including Azure, Exchange and Microsoft Graph.
+
+.LINK
+    https://maester.dev/docs/commands/Test-MtConnection
 #>
-Function Test-MtConnection {
+function Test-MtConnection {
     [CmdletBinding()]
     param(
         # Checks if the current session is connected to the specified service
-        [ValidateSet("All", "Azure", "ExchageOnline", "Graph")]
+        [ValidateSet("All", "Azure", "ExchangeOnline", "Graph", "SecurityCompliance","Teams")]
         [Parameter(Position = 0, Mandatory = $false)]
         [string[]]$Service = "Graph"
     )
@@ -30,14 +33,17 @@ Function Test-MtConnection {
         $isConnected = $false
         try {
             $isConnected = $null -ne (Get-AzContext -ErrorAction SilentlyContinue)
+            # Validate that the credentials are still valid
+            Invoke-AzRestMethod -Method GET -Path "subscriptions" -ErrorAction Stop | Out-Null
         } catch {
+            $isConnected = $false
             Write-Debug "Azure: $false"
         }
         Write-Verbose "Azure: $isConnected"
         if (!$isConnected) { $connectionState = $false }
     }
 
-    if ($Service -contains "ExchageOnline" -or $Service -contains "All") {
+    if ($Service -contains "ExchangeOnline" -or $Service -contains "All") {
         $isConnected = $false
         try {
             $isConnected = $null -ne ((Get-ConnectionInformation | Where-Object { $_.Name -match 'ExchangeOnline' -and $_.state -eq 'Connected' }))
@@ -56,6 +62,29 @@ Function Test-MtConnection {
             Write-Debug "Graph: $false"
         }
         Write-Verbose "Graph: $isConnected"
+        if (!$isConnected) { $connectionState = $false }
+    }
+
+    if ($Service -contains "SecurityCompliance" -or $Service -contains "All") {
+        $isConnected = $false
+        try {
+            $isConnected = $null -ne ((Get-ConnectionInformation | Where-Object { $_.Name -match 'ExchangeOnline' -and $_.state -eq 'Connected' -and $_.IsEopSession }))
+        } catch {
+            Write-Debug "Security & Compliance: $false"
+        }
+        Write-Verbose "Security & Compliance: $isConnected"
+        if (!$isConnected) { $connectionState = $false }
+    }
+
+    if ($Service -contains "Teams") { #ToValidate: Preview
+    #if ($Service -contains "Teams" -or $Service -contains "All") {
+        $isConnected = $false
+        try {
+            $isConnected = $null -ne (Get-CsTenant -ErrorAction SilentlyContinue)
+        } catch {
+            Write-Debug "Teams: $false"
+        }
+        Write-Verbose "Teams: $isConnected"
         if (!$isConnected) { $connectionState = $false }
     }
 

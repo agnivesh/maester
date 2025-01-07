@@ -19,9 +19,10 @@
  .Example
     Disconnect-MtMaester
 
+.LINK
+    https://maester.dev/docs/commands/Disconnect-Maester
 #>
-
-Function Disconnect-Maester {
+function Disconnect-Maester {
    [Alias("Disconnect-MtMaester", "Disconnect-MtGraph")]
    [CmdletBinding()]
    param()
@@ -36,8 +37,12 @@ Function Disconnect-Maester {
       Disconnect-AzAccount
    }
 
-   if($__MtSession.Connections -contains "ExchangeOnline" -or $__MtSession.Connections -contains "All"){
+   if($__MtSession.Connections -contains "ExchangeOnline" -or $__MtSession.Connections -contains "SecurityCompliance" -or $__MtSession.Connections -contains "All"){
       Write-Verbose -Message "Disconnecting from Microsoft Exchange Online."
       Disconnect-ExchangeOnline
+   }
+   if($__MtSession.Connections -contains "Teams" -or $__MtSession.Connections -contains "All"){
+      Write-Verbose -Message "Disconnecting from Microsoft Teams."
+      Disconnect-MicrosoftTeams
    }
 }

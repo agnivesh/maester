@@ -10,13 +10,20 @@
 
  .Example
   Test-MtCaDeviceComplianceExists
-#>
 
-Function Test-MtCaDeviceComplianceExists {
+.LINK
+    https://maester.dev/docs/commands/Test-MtCaDeviceComplianceExists
+#>
+function Test-MtCaDeviceComplianceExists {
   [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '', Justification = 'Exists is not a plural.')]
   [CmdletBinding()]
   [OutputType([bool])]
   param ()
+
+  if ( ( Get-MtLicenseInformation EntraID ) -eq "Free" ) {
+    Add-MtTestResultDetail -SkippedBecause NotLicensedEntraIDP1
+    return $null
+  }
 
   $policies = Get-MtConditionalAccessPolicy
 

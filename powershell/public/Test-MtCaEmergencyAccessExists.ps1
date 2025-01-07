@@ -11,16 +11,25 @@
 
  .Example
   Test-MtCaEmergencyAccessExists
-#>
 
-Function Test-MtCaEmergencyAccessExists {
+.LINK
+    https://maester.dev/docs/commands/Test-MtCaEmergencyAccessExists
+#>
+function Test-MtCaEmergencyAccessExists {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '', Justification = 'Exists is not a plural.')]
     [CmdletBinding()]
     [OutputType([bool])]
     param ()
 
+    if ( ( Get-MtLicenseInformation EntraID ) -eq "Free" ) {
+        Add-MtTestResultDetail -SkippedBecause NotLicensedEntraIDP1
+        return $null
+    }
+
     # Only check policies that are not related to authentication context
     $policies = Get-MtConditionalAccessPolicy | Where-Object { -not $_.conditions.applications.includeAuthenticationContextClassReferences }
+    # Remove policies that are scoped to service principals
+    $policies = $policies | Where-Object { -not $_.conditions.clientApplications.includeServicePrincipals }
 
     $result = $false
     $PolicyCount = $policies | Measure-Object | Select-Object -ExpandProperty Count

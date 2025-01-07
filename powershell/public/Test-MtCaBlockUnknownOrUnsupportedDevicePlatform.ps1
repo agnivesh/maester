@@ -10,12 +10,19 @@
 
  .Example
   Test-MtCaBlockUnknownOrUnsupportedDevicePlatform
-#>
 
-Function Test-MtCaBlockUnknownOrUnsupportedDevicePlatform {
+.LINK
+    https://maester.dev/docs/commands/Test-MtCaBlockUnknownOrUnsupportedDevicePlatform
+#>
+function Test-MtCaBlockUnknownOrUnsupportedDevicePlatform {
     [CmdletBinding()]
     [OutputType([bool])]
     param ()
+
+    if ( ( Get-MtLicenseInformation EntraID ) -eq "Free" ) {
+        Add-MtTestResultDetail -SkippedBecause NotLicensedEntraIDP1
+        return $null
+    }
 
     $policies = Get-MtConditionalAccessPolicy | Where-Object { $_.state -eq "enabled" }
 

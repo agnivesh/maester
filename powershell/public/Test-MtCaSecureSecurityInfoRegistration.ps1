@@ -10,12 +10,19 @@
 
  .Example
   Test-MtCaSecureSecurityInfoRegistration
-#>
 
-Function Test-MtCaSecureSecurityInfoRegistration {
+.LINK
+    https://maester.dev/docs/commands/Test-MtCaSecureSecurityInfoRegistration
+#>
+function Test-MtCaSecureSecurityInfoRegistration {
     [CmdletBinding()]
     [OutputType([bool])]
     param ()
+
+    if ( ( Get-MtLicenseInformation EntraID ) -eq "Free" ) {
+        Add-MtTestResultDetail -SkippedBecause NotLicensedEntraIDP1
+        return $null
+    }
 
     $policies = Get-MtConditionalAccessPolicy | Where-Object { $_.state -eq "enabled" }
     # Remove policies that require password change, as they are related to user risk and not MFA on signin

@@ -9,7 +9,11 @@ function Test-MtContext {
     param (
         # If specified, the scope will be checked to send email.
         [Parameter(Mandatory = $false)]
-        [switch] $SendMail
+        [switch] $SendMail,
+
+        # If specified, the scope will be checked to send Teams channel messages.
+        [Parameter(Mandatory = $false)]
+        [switch] $SendTeamsMessage
     )
 
     $validContext = $true
@@ -17,14 +21,14 @@ function Test-MtContext {
         $message = "Not connected to Microsoft Graph. Please use 'Connect-Maester'. For more information, use 'Get-Help Connect-Maester'."
         $validContext = $false
     } else {
-        $requiredScopes = Get-MtGraphScope -SendMail:$SendMail
+        $requiredScopes = Get-MtGraphScope -SendMail:$SendMail -SendTeamsMessage:$SendTeamsMessage
         $currentScopes = Get-MgContext | Select-Object -ExpandProperty Scopes
         $missingScopes = $requiredScopes | Where-Object { $currentScopes -notcontains $_ }
 
         if ($missingScopes) {
             $message = "These Graph permissions are missing in the current connection => ($($missingScopes))."
             $authType = (Get-MgContext).AuthType
-            if ($authType -eq  'Delegated') {
+            if ($authType -eq 'Delegated') {
                 $message += " Please use 'Connect-Maester'. For more information, use 'Get-Help Connect-Maester'."
             } else {
                 $clientId = (Get-MgContext).ClientId

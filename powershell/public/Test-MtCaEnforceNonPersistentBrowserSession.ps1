@@ -10,15 +10,23 @@
 
  .Example
   Test-MtCaEnforceNonPersistentBrowserSession
-#>
 
-Function Test-MtCaEnforceNonPersistentBrowserSession {
+.LINK
+    https://maester.dev/docs/commands/Test-MtCaEnforceNonPersistentBrowserSession
+#>
+function Test-MtCaEnforceNonPersistentBrowserSession {
     [CmdletBinding()]
     [OutputType([bool])]
     param (
         [Parameter()]
+        # Ignore device filters for compliant devices.
         [switch]$AllDevices
     )
+
+    if ( ( Get-MtLicenseInformation EntraID ) -eq "Free" ) {
+        Add-MtTestResultDetail -SkippedBecause NotLicensedEntraIDP1
+        return $null
+    }
 
     $policies = Get-MtConditionalAccessPolicy | Where-Object { $_.state -eq "enabled" }
 
@@ -33,13 +41,15 @@ See [Require reauthentication and disable browser persistence - Microsoft Learn]
         if (-not $AllDevices.IsPresent) {
             # Check if device filter for compliant or hybrid Azure AD joined devices is present
             if ( $policy.conditions.devices.deviceFilter.mode -eq "include" `
-                    -and $policy.conditions.devices.deviceFilter.rule -match 'device.trustType -ne \"ServerAD\"' `
-                    -and $policy.conditions.devices.deviceFilter.rule -match 'device.isCompliant -ne True' `
+                    -and (($policy.conditions.devices.deviceFilter.rule -match 'device.trustType -ne \"ServerAD\"' `
+                    -and $policy.conditions.devices.deviceFilter.rule -match 'device.isCompliant -ne True') `
+                    -or $policy.conditions.devices.deviceFilter.rule -match 'device.isCompliant -ne True') `
             ) {
                 $IsDeviceFilterPresent = $true
             } elseif ( $policy.conditions.devices.deviceFilter.mode -eq "exclude" `
-                    -and $policy.conditions.devices.deviceFilter.rule -match 'device.trustType -eq \"ServerAD\"' `
-                    -and $policy.conditions.devices.deviceFilter.rule -match 'device.isCompliant -eq True' `
+                    -and (($policy.conditions.devices.deviceFilter.rule -match 'device.trustType -eq \"ServerAD\"' `
+                    -and $policy.conditions.devices.deviceFilter.rule -match 'device.isCompliant -eq True') `
+                    -or $policy.conditions.devices.deviceFilter.rule -match 'device.isCompliant -eq True') `
             ) {
                 $IsDeviceFilterPresent = $true
             } else {

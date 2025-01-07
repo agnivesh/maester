@@ -11,14 +11,21 @@
 
  .Example
   Test-MtCaDeviceComplianceAdminsExists
-#>
 
-Function Test-MtCaDeviceComplianceAdminsExists {
+.LINK
+    https://maester.dev/docs/commands/Test-MtCaDeviceComplianceAdminsExists
+#>
+function Test-MtCaDeviceComplianceAdminsExists {
   [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '', Justification = 'Exists is not a plural.')]
   [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '', Justification = 'PSScriptAnalyzer bug is not detecting usage of PolicyIncludesAllRoles')]
   [CmdletBinding()]
   [OutputType([bool])]
   param ()
+
+  if ( ( Get-MtLicenseInformation EntraID ) -eq "Free" ) {
+    Add-MtTestResultDetail -SkippedBecause NotLicensedEntraIDP1
+    return $null
+  }
 
   $AdministrativeRolesToCheck = @(
     "62e90394-69f5-4237-9190-012177145e10",
@@ -65,8 +72,8 @@ See [Require compliant or Microsoft Entra hybrid joined device for administrator
     $PolicyIncludesAllRoles = $true
     $AdministrativeRolesToCheck | ForEach-Object {
       if ( ( $_ -notin $policy.conditions.users.includeRoles `
-        -and $policy.conditions.users.includeUsers -ne 'All' ) `
-        -or $_ -in $policy.conditions.users.excludeRoles `
+            -and $policy.conditions.users.includeUsers -notcontains 'All' ) `
+          -or $_ -in $policy.conditions.users.excludeRoles `
       ) {
         $PolicyIncludesAllRoles = $false
       }
@@ -84,7 +91,7 @@ See [Require compliant or Microsoft Entra hybrid joined device for administrator
   }
 
   if ($result -eq $false) {
-    $testResult = "There was no conditional access policy blocking access for unknown or unsupported device platforms."
+    $testResult = "There was no conditional access policy requiring compliant or Microsoft Entra hybrid joined device for administrators."
   }
   Add-MtTestResultDetail -Description $testDescription -Result $testResult
 

@@ -1,8 +1,4 @@
-﻿BeforeDiscovery {
-    $EntraIDPlan = Get-MtLicenseInformation -Product "EntraID"
-}
-
-Describe "Conditional Access Baseline Policies" -Tag "CA", "Security", "All" -Skip:( $EntraIDPlan -eq "Free" ) {
+﻿Describe "Conditional Access Baseline Policies" -Tag "Maester", "CA", "Security", "All" {
     It "MT.1001: At least one Conditional Access policy is configured with device compliance. See https://maester.dev/docs/tests/MT.1001" -Tag "MT.1001" {
         Test-MtCaDeviceComplianceExists | Should -Be $true -Because "there is no policy which requires device compliances"
     }
@@ -60,21 +56,44 @@ Describe "Conditional Access Baseline Policies" -Tag "CA", "Security", "All" -Sk
     It "MT.1020: All Conditional Access policies are configured to exclude directory synchronization accounts or do not scope them. See https://maester.dev/docs/tests/MT.1020" -Tag "MT.1020" {
         Test-MtCaExclusionForDirectorySyncAccount | Should -Be $true -Because "there is no policy that excludes directory synchronization accounts"
     }
-    Context "License utilization" {
+    It "MT.1035: All security groups assigned to Conditional Access Policies should be protected by RMAU. See https://maester.dev/docs/tests/MT.1035" -Tag "MT.1035" {
+        Test-MtCaGroupsRestricted | Should -Be $true -Because "there are one or more policies without protection of included or excluded groups"
+    }
+    It "MT.1036: All excluded objects should have a fallback include in another policy. See https://maester.dev/docs/tests/MT.1036" -Tag "MT.1036", "Warning" {
+        Test-MtCaGap | Should -Be $true -Because "there are one or more objects excluded without a corresponding fallback in another policy."
+    }
+    It "MT.1038: Conditional Access policies should not include or exclude deleted groups. See https://maester.dev/docs/tests/MT.1038" -Tag "MT.1038", "Warning" {
+        Test-MtCaReferencedGroupsExist | Should -Be $true -Because "there are one or more policies relying on deleted groups."
+    }
+    Context "License utilization" -Tag "LicenseUtilization" {
         It "MT.1022: All users utilizing a P1 license should be licensed. See https://maester.dev/docs/tests/MT.1022" -Tag "MT.1022" {
             $LicenseReport = Test-MtCaLicenseUtilization -License "P1"
             $LicenseReport.TotalLicensesUtilized | Should -BeLessOrEqual $LicenseReport.EntitledLicenseCount -Because "this is the maximium number of user that can utilize a P1 license"
         }
-        It "MT.1023: All users utilizing a P2 license should be licensed. See https://maester.dev/docs/tests/MT.1023" -Skip:( $EntraIDPlan -ne "P2" ) -Tag "MT.1023" {
+        It "MT.1023: All users utilizing a P2 license should be licensed. See https://maester.dev/docs/tests/MT.1023" -Tag "MT.1023" {
             $LicenseReport = Test-MtCaLicenseUtilization -License "P2"
             $LicenseReport.TotalLicensesUtilized | Should -BeLessOrEqual $LicenseReport.EntitledLicenseCount -Because "this is the maximium number of user that can utilize a P2 license"
         }
     }
 }
 
-Describe "Security Defaults" -Tag "CA", "Security", "All" -Skip:( $EntraIDPlan -ne "Free" ) {
+Describe "Security Defaults" -Tag "CA", "Security", "All" {
     It "MT.1021: Security Defaults are enabled. See https://maester.dev/docs/tests/MT.1021" -Tag "MT.1021" {
-        $SecurityDefaults = Invoke-MtGraphRequest -RelativeUri "policies/identitySecurityDefaultsEnforcementPolicy" -ApiVersion beta | Select-Object -ExpandProperty isEnabled
-        $SecurityDefaults | Should -Be $true -Because "Security Defaults are not enabled"
+        $EntraIDPlan = Get-MtLicenseInformation -Product EntraID
+        if ($EntraIDPlan -ne "Free") {
+            Add-MtTestResultDetail -SkippedBecause LicensedEntraIDPremium
+        } else {
+            $SecurityDefaults = Invoke-MtGraphRequest -RelativeUri "policies/identitySecurityDefaultsEnforcementPolicy" -ApiVersion beta | Select-Object -ExpandProperty isEnabled
+
+            if ($SecurityDefaults -eq $true) {
+                $testResultMarkdown = "Well done. SecurityDefaults are On `n`n"
+            } else {
+                $testResultMarkdown = "SecurityDefaults are Off '$($SecurityDefaults)' `n`n"
+            }
+            $testDetailsMarkdown = "You should enable SecurityDefaults or configure Conditional Access."
+            Add-MtTestResultDetail -Description $testDetailsMarkdown -Result $testResultMarkdown
+
+            $SecurityDefaults | Should -Be $true -Because "Security Defaults are not enabled"
+        }
     }
 }

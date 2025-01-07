@@ -12,12 +12,16 @@
 
 param (
     # Folder where generated test file should be written to.
-    [string] $TestFilePath = "./tests/EIDSCA/Test-EIDSCA.Generated.Tests.ps1",
+    [string] $TestFilePath = "$PSScriptRoot/../../tests/EIDSCA/Test-EIDSCA.Generated.Tests.ps1",
 
     # Folder where docs should be generated
-    [string] $DocsPath = "./website/docs/tests/eidsca",
+    [string] $DocsPath = "$PSScriptRoot/../../website/docs/tests/eidsca",
 
-    [string] $PowerShellFunctionsPath = "./powershell/public/eidsca",
+    # Folder where control functions should be generated
+    [string] $PowerShellFunctionsPath = "$PSScriptRoot/../../powershell/internal/eidsca",
+
+    # Folder where the public function should be generated
+    [string] $PublicFunctionPath = "$PSScriptRoot/../../powershell/public/eidsca",
 
     # Control name to filter on
     [string] $ControlName = "*",
@@ -26,13 +30,13 @@ param (
     [string] $AadSecConfigUrl = 'https://raw.githubusercontent.com/Cloud-Architekt/AzureAD-Attack-Defense/AADSCAv4/config/EidscaConfig.json'
 )
 
-Function GetRelativeUri($graphUri) {
+function GetRelativeUri($graphUri) {
     $relativeUri = $graphUri -replace 'https://graph.microsoft.com/v1.0/', ''
     $relativeUri = $relativeUri -replace 'https://graph.microsoft.com/beta/', ''
     return $relativeUri
 }
 
-Function GetVersion($graphUri) {
+function GetVersion($graphUri) {
     $apiVersion = 'v1.0'
     if ($graphUri.Contains('beta')) {
         $apiVersion = 'beta'
@@ -40,23 +44,54 @@ Function GetVersion($graphUri) {
     return $apiVersion
 }
 
-Function GetRecommendedValue($RecommendedValue) {
-    $compareOperators = @(">=",">","<")
-    foreach ($compareOperator in $compareOperators) {
-        if ($RecommendedValue.StartsWith($compareOperator)) {
-            $RecommendedValue = $RecommendedValue.Replace($compareOperator, "")
+function GetRecommendedValue($RecommendedValue) {
+    if($RecommendedValue -notlike "@('*,*')") {
+        $compareOperators = @(">=","<=",">","<")
+        foreach ($compareOperator in $compareOperators) {
+            if ($RecommendedValue.StartsWith($compareOperator)) {
+                $RecommendedValue = $RecommendedValue.Replace($compareOperator, "")
+            }
         }
+        return "'$RecommendedValue'"
+    } else {
+        return $RecommendedValue
     }
-    return "'$RecommendedValue'"
 }
 
-Function GetCompareOperator($RecommendedValue) {
-    if ($RecommendedValue.StartsWith(">=")) {
+function GetRecommendedValueMarkdown($RecommendedValueMarkdown) {
+    if($RecommendedValueMarkdown -like "@('*,*')") {
+        $RecommendedValueMarkdown = $RecommendedValueMarkdown -replace "@\(", "" -replace "\)", ""
+        return "$RecommendedValueMarkdown"
+    } elseif ($RecommendedValueMarkdown.StartsWith(">") -or $RecommendedValueMarkdown.StartsWith("<")) {
+        $RecommendedValueText = (GetCompareOperator($RecommendedValueMarkdown)).Text
+        $RecommendedValueMarkdown = "$RecommendedValueText $RecommendedValue"
+        return "$RecommendedValueMarkdown"
+    } else {
+        return "'$RecommendedValueMarkdown'"
+    }
+}
+
+function GetCompareOperator($RecommendedValue) {
+    if ($RecommendedValue -like "@('*,*')") {
+        $compareOperator = [PSCustomObject]@{
+            name       = 'in'
+            pester     = 'BeIn'
+            powershell = 'in'
+            text       = 'is one of the following values'
+        }
+    } elseif ($RecommendedValue.StartsWith(">=")) {
         $compareOperator = [PSCustomObject]@{
             name       = '>='
             pester     = 'BeGreaterOrEqual'
             powershell = 'ge'
             text       = 'is greater than or equal to'
+        }
+    } elseif ($RecommendedValue.StartsWith("<=")) {
+        $compareOperator = [PSCustomObject]@{
+            name       = '<='
+            pester     = 'BeLessOrEqual'
+            powershell = 'le'
+            text       = 'is less than or equal to'
         }
     } elseif ($RecommendedValue.StartsWith(">")) {
         $compareOperator = [PSCustomObject]@{
@@ -72,6 +107,7 @@ Function GetCompareOperator($RecommendedValue) {
             powershell = 'lt'
             text       = 'is less than'
         }
+
     } else {
         $compareOperator = [PSCustomObject]@{
             name       = '='
@@ -83,7 +119,7 @@ Function GetCompareOperator($RecommendedValue) {
     return $compareOperator
 }
 
-Function GetPageTitle($uri) {
+function GetPageTitle($uri) {
     $isValidUri = ($uri -as [System.URI]).AbsoluteURI -ne $null
 
     $title = ''
@@ -97,7 +133,7 @@ Function GetPageTitle($uri) {
     return $title
 }
 
-Function GetPageMarkdownLink($uri) {
+function GetPageMarkdownLink($uri) {
     $output = $uri
 
     $title = GetPageTitle($uri)
@@ -108,12 +144,12 @@ Function GetPageMarkdownLink($uri) {
     return $output
 }
 
-Function GetGraphExplorerMarkDownLink($relativeUri, $apiVersion) {
+function GetGraphExplorerMarkDownLink($relativeUri, $apiVersion) {
     $graphExplorerUrl = "https://developer.microsoft.com/en-us/graph/graph-explorer?request=$relativeUri&method=GET&version=$apiVersion&GraphUrl=https://graph.microsoft.com"
     return "[Open in Graph Explorer]($graphExplorerUrl)"
 }
 
-Function GetMitreUrl($item) {
+function GetMitreUrl($item) {
     $item = $item.Trim()
 
     $urlPart = ''
@@ -136,7 +172,7 @@ Function GetMitreUrl($item) {
     return $url
 }
 
-Function GetMitreTitle($item) {
+function GetMitreTitle($item) {
     $url = GetMitreUrl($item)
     if ($null -eq $url) {
         return $item
@@ -149,7 +185,7 @@ Function GetMitreTitle($item) {
     return $title
 }
 
-Function GetMitreItems($items) {
+function GetMitreItems($items) {
     $output = ""
     $isFirst = $true
     foreach ($item in $items) {
@@ -164,7 +200,7 @@ Function GetMitreItems($items) {
     return $output
 }
 
-Function GetMitreMarkdownLink($item) {
+function GetMitreMarkdownLink($item) {
     $url = GetMitreUrl($item)
     if ($null -eq $url) {
         return $item
@@ -174,7 +210,7 @@ Function GetMitreMarkdownLink($item) {
     return $output
 }
 
-Function GetMitreMarkdownLinks($items) {
+function GetMitreMarkdownLinks($items) {
     $output = ""
     $isFirst = $true
     foreach ($item in $items) {
@@ -187,7 +223,7 @@ Function GetMitreMarkdownLinks($items) {
     }
     return $output
 }
-Function GetMitreDiagram($controlItem) {
+function GetMitreDiagram($controlItem) {
 
     if ($controlItem.MitreTactic.Length -le 0) {
         return ''
@@ -228,7 +264,7 @@ mindmap
     return $mermaid
 }
 
-Function GetMarkdownLink($uri, $title, [switch]$lookupTitle) {
+function GetMarkdownLink($uri, $title, [switch]$lookupTitle) {
     if([string]::IsNullOrEmpty($uri)) { return '' }
     if($lookupTitle) {
         $pageTitle = GetPageTitle($uri)
@@ -239,7 +275,7 @@ Function GetMarkdownLink($uri, $title, [switch]$lookupTitle) {
     return "- [$title]($uri)"
 }
 
-Function GetPortalDeepLinkMarkdown($portalDeepLink) {
+function GetPortalDeepLinkMarkdown($portalDeepLink) {
     $result = $portalDeepLink
     if (![string]::IsNullOrEmpty($portalDeepLink)) {
         $domain = ($uri -as [System.URI]).Host
@@ -254,87 +290,121 @@ Function GetPortalDeepLinkMarkdown($portalDeepLink) {
     return $result
 }
 
-Function UpdateTemplate($template, $control, $controlItem, $docName, $isDoc) {
+function UpdateTemplate($template, $control, $controlItem, $docName, $isDoc) {
     $relativeUri = GetRelativeUri($control.GraphUri)
     $apiVersion = GetVersion($control.GraphUri)
 
     $recommendedValue = GetRecommendedValue($controlItem.RecommendedValue)
+    $RecommendedValueMarkdown = GetRecommendedValueMarkdown($controlItem.RecommendedValue)
     $compareOperator = GetCompareOperator($controlItem.RecommendedValue)
     $currentValue = $controlItem.CurrentValue
 
-    $psFunctionName = GetEidscaPsFunctionName -controlItem $controlItem
+    $psFunctionName = GetEidscaPsFunctionName -checkId $controlItem.CheckId
     $portalDeepLinkMarkdown = GetPortalDeepLinkMarkdown -portalDeepLink $controlItem.PortalDeepLink
     $graphDocsUrlMarkdown = GetMarkdownLink -uri $control.GraphDocsUrl -title "Graph Docs" -lookupTitle
 
-$output = ''
-if ($currentValue -eq '' -or $control.ControlName -eq '') {
-    Write-Warning 'Skipping'
-} else {
-    $graphExplorerUrl = GetGraphExplorerMarkDownLink -relativeUri $relativeUri -apiVersion $apiVersion
+    $output = ''
+    if ($currentValue -eq '' -or $control.ControlName -eq '') {
+        Write-Warning 'Skipping'
+    } else {
+        $graphExplorerUrl = GetGraphExplorerMarkDownLink -relativeUri $relativeUri -apiVersion $apiVersion
 
-    if ($isDoc) {
-        # Only do this for docs
-        $graphDocsUrl = GetPageMarkdownLink($control.GraphDocsUrl)
-        $recommendation = GetPageMarkdownLink($controlItem.Recommendation)
-        $mitreDiagram = GetMitreDiagram -controlItem $controlItem
+        if ($isDoc) {
+            # Only do this for docs
+            $graphDocsUrl = GetPageMarkdownLink($control.GraphDocsUrl)
+            $recommendation = GetPageMarkdownLink($controlItem.Recommendation)
+            $mitreDiagram = GetMitreDiagram -controlItem $controlItem
+        }
+
+        $output = $template
+
+        # Replace string with int if DefaultValue is a number and expecting an int as configuration value
+        if ($controlItem.DefaultValue -match "^[\d\.]+$") {
+            $output = $output -replace 'string', 'int'
+        }
+
+        $output = $output -replace '%DocName%', $docName
+        $output = $output -replace '%ControlName%', $control.ControlName
+        $output = $output -replace '%Description%', $control.Description
+        $output = $output -replace '%ControlItemDescription%', $controlItem.Description
+        $output = $output -replace '%Severity%', $controlItem.Severity
+        $output = $output -replace '%DisplayName%', $controlItem.DisplayName
+        $output = $output -replace '%Name%', $controlItem.Name
+        $output = $output -replace '%CheckId%', $controlItem.CheckId
+        $output = $output -replace '%CheckShortId%', ($controlItem.CheckId -replace '^EIDSCA\.')
+        $output = $output -replace '%Recommendation%', $recommendation
+        $output = $output -replace '%MitreTactic%', $controlItem.MitreTactic
+        $output = $output -replace '%MitreTechnique%', $controlItem.MitreTechnique
+        $output = $output -replace '%MitreMitigation%', $controlItem.MitreMitigation
+        $output = $output -replace '%PortalDeepLink%', $portalDeepLink
+        $output = $output -replace '%DefaultValue%', $controlItem.DefaultValue
+        $output = $output -replace '%RelativeUri%', $relativeUri
+        $output = $output -replace '%ApiVersion%', $apiVersion
+        $output = $output -replace '%ShouldOperator%', $compareOperator.pester.Replace("'", "")
+        $output = $output -replace '%CompareOperatorText%', $compareOperator.Text
+        $output = $output -replace '%CompareOperator%', $compareOperator.Name
+        $output = $output -replace '%PwshCompareOperator%', $compareOperator.powershell.Replace("'", "")
+        $output = $output -replace '%RecommendedValue%', $recommendedValue
+        $output = $output -replace '%RecommendedValueMarkdown%', $recommendedValueMarkdown
+        $output = $output -replace '%CurrentValue%', $CurrentValue
+        $output = $output -replace '%GraphEndPoint%', $control.GraphEndpoint
+        $output = $output -replace '%GraphDocsUrl%', $graphDocsUrl
+        $output = $output -replace '%HowToFix%', $controlItem.howToFix
+        $output = $output -replace '%GraphExplorerUrl%', $graphExplorerUrl
+        $output = $output -replace '%MitreDiagram%', $mitreDiagram
+        $output = $output -replace '%PSFunctionName%', $psFunctionName
+        $output = $output -replace '%PortalDeepLinkMarkdown%', $portalDeepLinkMarkdown
+        $output = $output -replace '%GraphDocsUrlMarkdown%', $graphDocsUrlMarkdown
     }
 
-    $output = $template
-    $output = $output -replace '%DocName%', $docName
-    $output = $output -replace '%ControlName%', $control.ControlName
-    $output = $output -replace '%Description%', $control.Description
-    $output = $output -replace '%ControlItemDescription%', $controlItem.Description
-    $output = $output -replace '%Severity%', $controlItem.Severity
-    $output = $output -replace '%DisplayName%', $controlItem.DisplayName
-    $output = $output -replace '%Name%', $controlItem.Name
-    $output = $output -replace '%CheckId%', $controlItem.CheckId
-    $output = $output -replace '%Recommendation%', $recommendation
-    $output = $output -replace '%MitreTactic%', $controlItem.MitreTactic
-    $output = $output -replace '%MitreTechnique%', $controlItem.MitreTechnique
-    $output = $output -replace '%MitreMitigation%', $controlItem.MitreMitigation
-    $output = $output -replace '%PortalDeepLink%', $portalDeepLink
-    $output = $output -replace '%DefaultValue%', $controlItem.DefaultValue
-    $output = $output -replace '%RelativeUri%', $relativeUri
-    $output = $output -replace '%ApiVersion%', $apiVersion
-    $output = $output -replace '%ShouldOperator%', $compareOperator.pester.Replace("'", "")
-    $output = $output -replace '%CompareOperatorText%', $compareOperator.Text
-    $output = $output -replace '%CompareOperator%', $compareOperator.Name
-    $output = $output -replace '%PwshCompareOperator%', $compareOperator.powershell.Replace("'", "")
-    $output = $output -replace '%RecommendedValue%', $recommendedValue
-    $output = $output -replace '%CurrentValue%', $CurrentValue
-    $output = $output -replace '%GraphEndPoint%', $control.GraphEndpoint
-    $output = $output -replace '%GraphDocsUrl%', $graphDocsUrl
-    $output = $output -replace '%GraphExplorerUrl%', $graphExplorerUrl
-    $output = $output -replace '%MitreDiagram%', $mitreDiagram
-    $output = $output -replace '%PSFunctionName%', $psFunctionName
-    $output = $output -replace '%PortalDeepLinkMarkdown%', $portalDeepLinkMarkdown
-    $output = $output -replace '%GraphDocsUrlMarkdown%', $graphDocsUrlMarkdown
-}
+    # Add condition to test template if defined in EidscaTest
+    if (-not [string]::IsNullOrWhiteSpace($controlItem.SkipCondition) ) {
+        $SkipCheck = "if ( $($controlItem.SkipCondition) ) {
+            Add-MtTestResultDetail -SkippedBecause 'Custom' -SkippedCustomReason '$($controlItem.SkipReason)'
+            return " + '$null' +"`
+    }"
+        $output = $output -replace '%SkipCheck%', "$($SkipCheck)"
 
-return $output
+        # Extract variable name from the condition to build syntax for TestCases
+        $SkipConditionVariable = ($controlItem.SkipCondition -split ' ')[0]
+        $SkipConditionVariableName = $SkipConditionVariable -replace '[$()]', ''
+        $output = $output -replace '%TestCases%', " -TestCases @{ $($SkipConditionVariableName) = $($SkipConditionVariable) }"
+    } else {
+        $output = $output -replace '%SkipCheck%', ""
+        $output = $output -replace '%TestCases%', ""
+    }
+
+    return $output
 }
 
 # Returns the contents of a file named @template.txt at the given folder path
-Function GetTemplate($folderPath, $templateFileName = "@template.txt") {
+function GetTemplate($folderPath, $templateFileName = "@template.txt") {
     $templateFilePath = Join-Path $folderPath $templateFileName
     return Get-Content $templateFilePath -Raw
 }
 
-Function CreateFile($folderPath, $fileName, $content) {
+function CreateFile($folderPath, $fileName, $content) {
     $filePath = Join-Path $folderPath $fileName
     $content | Out-File $filePath -Encoding utf8
 }
 
-Function GetEidscaPsFunctionName($controlItem) {
-    $powerShellFunctionName = "Test-Mt$($controlItem.CheckId)"
+function GetEidscaPsFunctionName($checkId) {
+    $powerShellFunctionName = "Test-Mt$($checkId)"
     $powerShellFunctionName = $powerShellFunctionName.Replace("EIDSCA.", "Eidsca")
     return $powerShellFunctionName
+}
+
+function GeneratePublicFunction($folderPath, $controlIds) {
+    $output = GetTemplate -folderPath $folderPath -templateFileName '@Test-MtEidscaControl.txt'
+    $output = $output -replace '%ArrayOfControlIds%', "'$($controlIds -replace '^.*\.' -join "','")'"
+    $output = $output -replace '%InternalFunctionNameTemplate%', (GetEidscaPsFunctionName -checkId 'EIDSCA.$CheckId')
+    CreateFile -folderPath $folderPath -fileName 'Test-MtEidscaControl.ps1' -content $output
 }
 
 # Start by getting the latest EIDSCA config
 $aadsc = Invoke-WebRequest -Uri $AadSecConfigUrl | ConvertFrom-Json
 $aadsc = ($aadsc | Where-Object {$_.CollectedBy -eq "Maester"}).ControlArea
-$Discovery = ($aadsc | where-Object {$_.discovery -ne ""}).Discovery
+$Discovery = ($aadsc | Where-Object {$_.discovery -ne ""}).Discovery
 
 # Remove previously generated files
 Get-ChildItem -Path $DocsPath -Filter "*.md" -Exclude "readme.md" | Remove-Item -Force
@@ -350,6 +420,7 @@ if ($null -ne $ControlName) {
     $aadsc = $aadsc | Where-Object { $_.ControlName -like $ControlName }
 }
 
+$exportedControls = [System.Collections.Generic.List[string]]::new()
 foreach ($control in $aadsc) {
     Write-Verbose "Generating test for $($control.ControlName)"
 
@@ -357,48 +428,48 @@ foreach ($control in $aadsc) {
 
     foreach ($controlItem in $control.Controls) {
         # Export check only if RecommendedValue is set
-        if (($null -ne $controlItem.RecommendedValue -and $controlItem.RecommendedValue -ne "")) {
-            $docName = $controlItem.CheckId
+        if ($null -eq $controlItem.RecommendedValue -or $controlItem.RecommendedValue -eq '') {
+            Write-Warning "$($controlItem.CheckId) - $($controlItem.DisplayName) has no recommended value!"
+            continue
+        }
+
+        $exportedControls.Add($controlItem.CheckId)
+        $docName = $controlItem.CheckId
 
 $testTemplate = @'
 Describe "%ControlName%" -Tag "EIDSCA", "Security", "All", "%CheckId%" {
-    It "%CheckId%: %ControlName% - %DisplayName%. See https://maester.dev/docs/tests/%DocName%" {
+    It "%CheckId%: %ControlName% - %DisplayName%. See https://maester.dev/docs/tests/%DocName%"%TestCases% {
         <#
             Check if "https://graph.microsoft.com/%ApiVersion%/%RelativeUri%"
-            .%CurrentValue% %CompareOperator% %RecommendedValue%
+            .%CurrentValue% -%PwshCompareOperator% %RecommendedValue%
         #>
-        %PSFunctionName% | Should -%ShouldOperator% %RecommendedValue%
+        Test-MtEidscaControl -CheckId %CheckShortId% | Should -%ShouldOperator% %RecommendedValue%
     }
 }
 '@
 
-            # Add condition to test template if defined in EidscaTest
-            if ($controlItem.SkipCondition -ne "") {
+        $testOutput = UpdateTemplate -template $testTemplate -control $control -controlItem $controlItem -docName $docName
+        $docsOutput = UpdateTemplate -template $docsTemplate -control $control -controlItem $controlItem -docName $docName -isDoc $true
+        $psOutput = UpdateTemplate -template $psTemplate -control $control -controlItem $controlItem -docName $docName
 
-                $testTemplate = $testTemplate.Replace( '"%CheckId%"', '"%CheckId%" -Skip:( ' + $controlItem.SkipCondition + ' )')
-            }
-            $testOutput = UpdateTemplate -template $testTemplate -control $control -controlItem $controlItem -docName $docName
-            $docsOutput = UpdateTemplate -template $docsTemplate -control $control -controlItem $controlItem -docName $docName -isDoc $true
-            $psOutput = UpdateTemplate -template $psTemplate -control $control -controlItem $controlItem -docName $docName
-            $psMarkdownOutput = UpdateTemplate -template $psMarkdownTemplate -control $control -controlItem $controlItem -docName $docName -isDoc $true
+        $psMarkdownOutput = UpdateTemplate -template $psMarkdownTemplate -control $control -controlItem $controlItem -docName $docName -isDoc $true
 
+        if ($testOutput -ne '') {
+            [void]$testOutputList.AppendLine($testOutput)
 
-            if ($testOutput -ne '') {
-                [void]$testOutputList.AppendLine($testOutput)
-
-                CreateFile $DocsPath "$docName.md" $docsOutput
-                $psFunctionName = GetEidscaPsFunctionName -controlItem $controlItem
-                CreateFile $PowerShellFunctionsPath "$psFunctionName.ps1" $psOutput
-                CreateFile $PowerShellFunctionsPath "$psFunctionName.md" $psMarkdownOutput
-            }
-        } else {
-            Write-Warning "$($controlItem.CheckId) - $($controlItem.DisplayName) has no recommended value!"
+            CreateFile $DocsPath "$docName.md" $docsOutput
+            $psFunctionName = GetEidscaPsFunctionName -checkId $controlItem.CheckId
+            CreateFile $PowerShellFunctionsPath "$psFunctionName.ps1" $psOutput
+            CreateFile $PowerShellFunctionsPath "$psFunctionName.md" $psMarkdownOutput
         }
     }
     if ($testOutputList.Length -ne 0) {
         [void]$sb.AppendLine($testOutputList)
     }
 }
+
+# Generate Test-MtEidscaControl
+GeneratePublicFunction -folderPath $PublicFunctionPath -controlIds $exportedControls
 
 $output = @'
 BeforeDiscovery {

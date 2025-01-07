@@ -10,13 +10,20 @@
 
  .Example
   Test-MtCaExclusionForDirectorySyncAccount
-#>
 
-Function Test-MtCaExclusionForDirectorySyncAccount {
+.LINK
+    https://maester.dev/docs/commands/Test-MtCaExclusionForDirectorySyncAccount
+#>
+function Test-MtCaExclusionForDirectorySyncAccount {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '', Justification = 'PolicyIncludesAllUsers is used in the condition.')]
     [CmdletBinding()]
     [OutputType([bool])]
     param ()
+
+    if ( ( Get-MtLicenseInformation EntraID ) -eq "Free" ) {
+        Add-MtTestResultDetail -SkippedBecause NotLicensedEntraIDP1
+        return $null
+    }
 
     $testDescription = "It is recommended to exclude directory synchronization accounts from all conditional access policies scoped to all cloud apps."
     $testResult = "The following conditional access policies are scoped to all users but don't exclude the directory synchronization accounts:`n`n"
@@ -24,7 +31,7 @@ Function Test-MtCaExclusionForDirectorySyncAccount {
     $DirectorySynchronizationAccountRoleTemplateId = "d29b2b05-8046-44ba-8758-1e26182fcf32"
     try {
         $DirectorySynchronizationAccountRoleId = Invoke-MtGraphRequest -RelativeUri "directoryRoles(roleTemplateId='$DirectorySynchronizationAccountRoleTemplateId')" -Select id | Select-Object -ExpandProperty id
-        $DirectorySynchronizationAccounts = Invoke-MtGraphRequest -RelativeUri "directoryRoles/$DirectorySynchronizationAccountRoleId/members" -Select id | Select-Object -ExpandProperty id
+        $DirectorySynchronizationAccounts = Invoke-MtGraphRequest -RelativeUri "directoryRoles/$DirectorySynchronizationAccountRoleId/members" -Select id | Get-ObjectProperty -Property id
         if ( $null -eq $DirectorySynchronizationAccounts ) {
             throw "Directory synchronization accounts not found"
         }
@@ -41,7 +48,17 @@ Function Test-MtCaExclusionForDirectorySyncAccount {
         if ( $policy.conditions.applications.includeApplications -ne "All" ) {
             # Skip this policy, because it does not apply to all applications
             $currentresult = $true
-            Write-Verbose "Skipping $($policy.displayName) - $currentresult"
+            Write-Verbose "Skipping $($policy.displayName) because it's not scoped to all apps - $currentresult"
+            continue
+        }
+
+        if ( [string]::IsNullOrWhiteSpace($policy.conditions.users.includeUsers) -and `
+                [string]::IsNullOrWhiteSpace($policy.conditions.users.includeGroups) -and `
+                [string]::IsNullOrWhiteSpace($policy.conditions.users.includeRoles) -and `
+            ( -not [string]::IsNullOrWhiteSpace($policy.conditions.users.includeGuestsOrExternalUsers) ) ) {
+            # Skip this policy, because it does not apply to any internal users, but only guests
+            $currentresult = $true
+            Write-Verbose "Skipping $($policy.displayName) because no internal users is scoped - $currentresult"
             continue
         }
 

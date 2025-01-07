@@ -18,17 +18,24 @@
   Test-MtCaAllAppsExists -SkipCheckAllUsers
 
   Returns true if at least one conditional access policy exists that targets all cloud apps and all users, but skips the check for all users.
-#>
 
-Function Test-MtCaAllAppsExists {
+.LINK
+    https://maester.dev/docs/commands/Test-MtCaAllAppsExists
+#>
+function Test-MtCaAllAppsExists {
   [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '', Justification = 'Exists is not a plurality')]
   [CmdletBinding()]
   [OutputType([bool])]
   param (
-
     [Parameter(Position = 0)]
+    # Do not check for All Users target in policy.
     [switch] $SkipCheckAllUsers = $false
   )
+
+  if ( ( Get-MtLicenseInformation EntraID ) -eq "Free" ) {
+    Add-MtTestResultDetail -SkippedBecause NotLicensedEntraIDP1
+    return $null
+  }
 
   $policies = Get-MtConditionalAccessPolicy | Where-Object { $_.state -eq "enabled" } | Where-Object { $_.grantcontrols.builtincontrols -notcontains 'passwordChange' }
 

@@ -2,7 +2,7 @@
 title: Installation guide
 ---
 
-- Install the **Maester** PowerShell module, Pester and the out of the box tests.
+- Install the **Maester** PowerShell module, Pester, and the out of the box tests.
 
 ```powershell
 Install-Module Pester -SkipPublisherCheck -Force -Scope CurrentUser
@@ -10,7 +10,7 @@ Install-Module Maester -Scope CurrentUser
 
 md maester-tests
 cd maester-tests
-Install-MaesterTests .\tests
+Install-MaesterTests
 ```
 
 - Sign into your Microsoft 365 tenant and run the tests.
@@ -19,6 +19,11 @@ Install-MaesterTests .\tests
 Connect-Maester
 Invoke-Maester
 ```
+
+## Invoke-Maester
+
+To learn more about the `Invoke-Maester` cmdlet including how to filter tests, and customize the run of the Pester Configuration see the [Invoke-Maester](/docs/commands/Invoke-Maester) documentation.
+
 
 ## Optional modules and permissions
 
@@ -31,11 +36,15 @@ Install-Module Az -Scope CurrentUser
 Install-Module ExchangeOnlineManagement -Scope CurrentUser
 ```
 
+> The Security & Compliance PowerShell module is dependent on the ExchangeOnlineManagement `Connect-IPPSSession` cmdlet.
+
 ### Connecting to Azure, Exchange and other services
 
-In order to run all the CISA tests, you need to connect to the Azure and Exchange Online modules.
+In order to run all the CISA tests, you need to connect to the Azure, Exchange Online, and other modules.
 
-Run the following command to interactively connect to the Azure and Exchange Online modules. A sign in window will appear for each module.
+For a more detailed introduction to these concepts see the [Connect-Maester](/docs/connect-maester) documentation.
+
+Run the following command to interactively connect to the Azure, Exchange Online, and other modules. A sign in window will appear for each module.
 
 ```powershell
 Connect-Maester -Service All
@@ -53,5 +62,7 @@ Exchange Online implements a [role-based access control model](https://learn.mic
 - Monitoring with Maester
   - [Set up Maester on GitHub](/docs/monitoring/github)
   - [Set up Maester on Azure DevOps](/docs/monitoring/azure-devops)
+  - [Set up Maester on Azure Container App Jobs](/docs/monitoring/azure-container-app-job)
   - [Set up Maester email alerts](/docs/monitoring/email)
+  - [Set up Maester Slack alerts](/docs/monitoring/slack)
 - [Writing Custom Tests](/docs/writing-tests)
