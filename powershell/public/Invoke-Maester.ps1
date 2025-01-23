@@ -12,42 +12,47 @@ By default, Invoke-Maester runs all *.Tests.ps1 files in the current directory a
 .EXAMPLE
 Invoke-Maester
 
-Runs all the Pester test files under the current folder and generates a report of the results in the ./test-results folder.
+Runs all the test files under the current folder and generates a report of the results in the ./test-results folder.
 
 .EXAMPLE
 Invoke-Maester ./maester-tests
 
-Runs all the Pester tests in the folder ./tests/Maester and generates a report of the results in the default ./test-results folder.
+Runs all the tests in the folder ./tests/Maester and generates a report of the results in the default ./test-results folder.
 
 .EXAMPLE
-Invoke-Maester -Tag "CA"
+Invoke-Maester -Tag 'CA'
 
-Runs the Pester tests with the tag "CA" and generates a report of the results in the default ./test-results folder.
-
-.EXAMPLE
-Invoke-Maester -Tag "CA", "App"
-
-Runs the Pester tests with the tags "CA" and "App" and generates a report of the results in the default ./test-results folder.
+Runs the tests with the tag "CA" and generates a report of the results in the default ./test-results folder.
 
 .EXAMPLE
-Invoke-Maester -OutputFolder "./my-test-results"
+Invoke-Maester -Tag 'CA', 'App'
 
-Runs all the Pester tests and generates a report of the results in the ./my-test-results folder.
+Runs the tests with the tags 'CA' and 'App' and generates a report of the results in the default ./test-results folder.
 
 .EXAMPLE
-Invoke-Maester -OutputHtmlFile "./test-results/TestResults.html"
+Invoke-Maester -OutputFolder './my-test-results'
 
-Runs all the Pester tests and generates a report of the results in the specified file.
+Runs all the tests and generates a report of the results in the ./my-test-results folder.
+
+.EXAMPLE
+Invoke-Maester -OutputHtmlFile './test-results/TestResults.html'
+
+Runs all the tests and generates a report of the results in the specified file.
 
 .EXAMPLE
 Invoke-Maester -Path ./tests/EIDSCA
 
-Runs all the Pester tests in the EIDSCA folder.
+Runs all the tests in the EIDSCA folder.
 
 .EXAMPLE
 Invoke-Maester -MailRecipient john@contoso.com
 
-Runs all the Pester tests and sends a report of the results to mail recipient.
+Runs all the tests and sends a report of the results to mail recipient.
+
+.EXAMPLE
+Invoke-Maester -TeamId '00000000-0000-0000-0000-000000000000' -TeamChannelId '19%3A00000000000000000000000000000000%40thread.tacv2'
+
+Runs all the tests and posts a summary of the results to a Teams channel.
 
 .EXAMPLE
 Invoke-Maester -Verbosity Normal
@@ -56,7 +61,7 @@ Shows results of tests as they are run including details on failed tests.
 
 .EXAMPLE
 ```
-$configuration = [PesterConfiguration]::Default
+$configuration = New-PesterConfiguration
 $configuration.Run.Path = './tests/Maester'
 $configuration.Filter.Tag = 'CA'
 $configuration.Filter.ExcludeTag = 'App'
@@ -65,13 +70,16 @@ Invoke-Maester -PesterConfiguration $configuration
 
 ```
 Runs all the Pester tests in the EIDSCA folder.
-#>
 
-Function Invoke-Maester {
+.LINK
+    https://maester.dev/docs/commands/Invoke-Maester
+#>
+function Invoke-Maester {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '', Justification = 'Colors are beautiful')]
     [Alias("Invoke-MtMaester")]
+    [CmdletBinding()]
     param (
-        # Specifies one or more paths to files containing tests. The value is a path\file name or name pattern. Wildcards are permitted.
+        # Specifies path to files containing tests. The value is a path\file name or name pattern. Wildcards are permitted.
         [Parameter(Position = 0)]
         [string] $Path,
 
@@ -129,9 +137,25 @@ Function Invoke-Maester {
         # This is required when using application permissions.
         [string] $MailUserId,
 
+        # Optional. The Teams team where the test results should be posted.
+        # To get the TeamId, right-click on the channel in Teams and select 'Get link to channel'. Use the value of groupId. e.g. ?groupId=<TeamId>
+        [string] $TeamId,
+
+        # Optional. The channel where the message should be posted. e.g. 19%3A00000000000000000000000000000000%40thread.tacv2
+        # To get the TeamChannelId, right-click on the channel in Teams and select 'Get link to channel'. Use the value found between channel and the channel name. e.g. /channel/<TeamChannelId>/my%20channel
+        [string] $TeamChannelId,
+
         # Skip the graph connection check.
         # This is used for running tests that does not require a graph connection.
-        [switch] $SkipGraphConnect
+        [switch] $SkipGraphConnect,
+
+        # Disable Telemetry
+        # If set, telemetry information will not be logged.
+        [switch] $DisableTelemetry,
+`
+        # Skip the version check.
+        # If set, the version check will not be performed.
+        [switch] $SkipVersionCheck
     )
 
     function GetDefaultFileName() {
@@ -142,7 +166,7 @@ Function Invoke-Maester {
     function ValidateAndSetOutputFiles($out) {
         $result = $null
         if (![string]::IsNullOrEmpty($out.OutputHtmlFile)) {
-            if ($out.OutputFile.EndsWith(".html") -eq $false) {
+            if ($out.OutputHtmlFile.EndsWith(".html") -eq $false) {
                 $result = "The OutputHtmlFile parameter must have an .html extension."
             }
         }
@@ -156,9 +180,11 @@ Function Invoke-Maester {
                 $result = "The OutputJsonFile parameter must have a .json extension."
             }
         }
-        if ([string]::IsNullOrEmpty($out.OutputFolder) -or `
-            (!$PassThru -and [string]::IsNullOrEmpty($out.OutputFolder) -and [string]::IsNullOrEmpty($out.OutputHtmlFile) `
-                    -and [string]::IsNullOrEmpty($out.OutputMarkdownFile) -and [string]::IsNullOrEmpty($out.OutputJsonFile))) {
+
+        $someOutputFileHasValue = ![string]::IsNullOrEmpty($out.OutputHtmlFile) -or `
+            ![string]::IsNullOrEmpty($out.OutputMarkdownFile) -or ![string]::IsNullOrEmpty($out.OutputJsonFile)
+
+        if ([string]::IsNullOrEmpty($out.OutputFolder) -and !$someOutputFileHasValue) {
             # No outputs specified. Set default folder.
             $out.OutputFolder = "./test-results"
         }
@@ -200,27 +226,33 @@ Function Invoke-Maester {
         return $PesterConfiguration
     }
 
+    # ASCII Art using style "ANSI Shadow"
     $motd = @"
 
-.___  ___.      ___       _______     _______.___________. _______ .______         ____    ____  ___      __
-|   \/   |     /   \     |   ____|   /       |           ||   ____||   _  \        \   \  /   / / _ \    /_ |
-|  \  /  |    /  ^  \    |  |__     |   (--------|  |----``|  |__   |  |_)  |        \   \/   / | | | |    | |
-|  |\/|  |   /  /_\  \   |   __|     \   \       |  |     |   __|  |      /          \      /  | | | |    | |
-|  |  |  |  /  _____  \  |  |____.----)   |      |  |     |  |____ |  |\  \----.      \    /   | |_| |  __| |
-|__|  |__| /__/     \__\ |_______|_______/       |__|     |_______|| _| ``._____|       \__/     \___/  (__)_|
-
+███╗   ███╗ █████╗ ███████╗███████╗████████╗███████╗██████╗     ██╗   ██╗ ██╗    ██████╗
+████╗ ████║██╔══██╗██╔════╝██╔════╝╚══██╔══╝██╔════╝██╔══██╗    ██║   ██║███║   ██╔═████╗
+██╔████╔██║███████║█████╗  ███████╗   ██║   █████╗  ██████╔╝    ██║   ██║╚██║   ██║██╔██║
+██║╚██╔╝██║██╔══██║██╔══╝  ╚════██║   ██║   ██╔══╝  ██╔══██╗    ╚██╗ ██╔╝ ██║   ████╔╝██║
+██║ ╚═╝ ██║██║  ██║███████╗███████║   ██║   ███████╗██║  ██║     ╚████╔╝  ██║██╗╚██████╔╝
+╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝      ╚═══╝   ╚═╝╚═╝ ╚═════╝
 
 "@
     Write-Host -ForegroundColor Green $motd
 
     Clear-ModuleVariable # Reset the graph cache and urls to avoid stale data
 
+    if (-not $DisableTelemetry) {
+        Write-Telemetry -EventName InvokeMaester
+    }
+
     $isMail = $null -ne $MailRecipient
+
+    $isTeamsChannelMessage = -not ([String]::IsNullOrEmpty($TeamId) -or [String]::IsNullOrEmpty($TeamChannelId))
 
     if ($SkipGraphConnect) {
         Write-Host "🔥 Skipping graph connection check" -ForegroundColor Yellow
     } else {
-        if (!(Test-MtContext -SendMail:$isMail)) { return }
+        if (!(Test-MtContext -SendMail:$isMail -SendTeamsMessage:$isTeamsChannelMessage)) { return }
     }
 
     $out = [PSCustomObject]@{
@@ -244,7 +276,29 @@ Function Invoke-Maester {
     }
 
     $pesterConfig = GetPesterConfiguration -Path $Path -Tag $Tag -ExcludeTag $ExcludeTag -PesterConfiguration $PesterConfiguration
+    $Path = $pesterConfig.Run.Path.value
     Write-Verbose "Merged configuration: $($pesterConfig | ConvertTo-Json -Depth 5 -Compress)"
+
+    if ( Test-Path -Path $Path -PathType Leaf ) {
+        Write-Host "The path '$Path' is a file. Please provide a folder path." -ForegroundColor Red
+        Write-Host "💫 Update-MaesterTests" -NoNewline -ForegroundColor Green
+        Write-Host " → Get the latest tests built by the Maester team and community." -ForegroundColor Yellow
+        return
+    }
+
+    if ( -not ( Test-Path -Path $Path -PathType Container ) ) {
+        Write-Host "The path '$Path' does not exist." -ForegroundColor Red
+        Write-Host "💫 Update-MaesterTests" -NoNewline -ForegroundColor Green
+        Write-Host " → Get the latest tests built by the Maester team and community." -ForegroundColor Yellow
+        return
+    }
+
+    if ( -not ( Get-ChildItem -Path "$Path\*.Tests.ps1" -Recurse ) ) {
+        Write-Host "No test files found in the path '$Path'." -ForegroundColor Red
+        Write-Host "💫 Update-MaesterTests" -NoNewline -ForegroundColor Green
+        Write-Host " → Get the latest tests built by the Maester team and community." -ForegroundColor Yellow
+        return
+    }
 
     $maesterResults = $null
 
@@ -285,6 +339,11 @@ Function Invoke-Maester {
             Send-MtMail -MaesterResults $maesterResults -Recipient $MailRecipient -TestResultsUri $MailTestResultsUri -UserId $MailUserId
         }
 
+        if ($TeamId -and $TeamChannelId) {
+            Write-MtProgress -Activity "Sending Teams message"
+            Send-MtTeamsMessage -MaesterResults $maesterResults -TeamId $TeamId -TeamChannelId $TeamChannelId -TestResultsUri $MailTestResultsUri
+        }
+
         if ($Verbosity -eq 'None') {
             # Show final summary
             Write-Host "`nTests Passed ✅: $($pesterResults.PassedCount), " -NoNewline -ForegroundColor Green
@@ -292,7 +351,9 @@ Function Invoke-Maester {
             Write-Host "Skipped ⚫: $($pesterResults.SkippedCount)`n" -ForegroundColor DarkGray
         }
 
-        Get-IsNewMaesterVersionAvailable | Out-Null
+        if (-not $SkipVersionCheck) {
+            Get-IsNewMaesterVersionAvailable | Out-Null
+        }
 
         Write-MtProgress -Activity "🔥 Completed tests" -Status "Total $($pesterResults.TotalCount) " -Completed -Force # Clear progress bar
     }

@@ -2,7 +2,7 @@
 .SYNOPSIS
     Enhanced version of Invoke-MgGraphRequest that supports caching.
 #>
-Function Invoke-MtGraphRequestCache {
+function Invoke-MtGraphRequestCache {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -15,7 +15,8 @@ Function Invoke-MtGraphRequestCache {
         [System.Collections.IDictionary] $Headers,
         # Specify if this request should skip cache and go directly to Graph.
         [Parameter(Mandatory = $false)]
-        [switch] $DisableCache
+        [switch] $DisableCache,
+        [string] $Body
     )
 
     $results = $null
@@ -32,7 +33,14 @@ Function Invoke-MtGraphRequestCache {
 
     if (!$results) {
         Write-Verbose ("Invoking Graph: $($Uri.AbsoluteUri)")
-        $results = Invoke-MgGraphRequest -Method $Method -Uri $Uri -Headers $Headers -OutputType $OutputType
+        Write-Verbose ([string]::IsNullOrEmpty($Body))
+
+        if ($Method -eq 'GET') {
+            $results = Invoke-MgGraphRequest -Method $Method -Uri $Uri -Headers $Headers -OutputType $OutputType # -Body $Body # Cannot use Body with GET in PS 5.1
+        } else {
+            $results = Invoke-MgGraphRequest -Method $Method -Uri $Uri -Headers $Headers -OutputType $OutputType -Body $Body
+        }
+
         if (!$isBatch -and $isMethodGet) {
             # Update cache
             if ($isInCache) {

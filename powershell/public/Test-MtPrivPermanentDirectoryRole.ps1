@@ -7,17 +7,22 @@
 
  .Example
   Test-MtPrivPermanentDirectoryRole -FilteredAccessLevel "ControlPlane" -FilterPrincipal "ExternalUser"
+
+.LINK
+  https://maester.dev/docs/commands/Test-MtPrivPermanentDirectoryRole
 #>
-Function Test-MtPrivPermanentDirectoryRole {
+function Test-MtPrivPermanentDirectoryRole {
   [OutputType([bool])]
   [CmdletBinding()]
   param (
     [Parameter(ValueFromPipelineByPropertyName = $true)]
     [ValidateSet("ControlPlane", "ManagementPlane")]
+    # Filter based on Enterprise Access Model Tiering. Can be 'ControlPlane' and/or 'ManagementPlane'.
     [string[]]$FilteredAccessLevel = $null,
 
     [Parameter(ValueFromPipelineByPropertyName = $true, Mandatory)]
     [ValidateSet("ExternalUser", "HybridUser", "ServicePrincipalClientSecret", "ServicePrincipalObject", "UserMailbox")]
+    # Filter based on principal types. Accepted values are 'ExternalUser', 'HybridUser', 'ServicePrincipalClientSecret', 'ServicePrincipalObject' and/or 'UserMailbox'.
     [object[]]$FilterPrincipal
   )
 
@@ -93,7 +98,7 @@ Learn more about the different type and best practices for workload identities:
 "
       }
       UserMailbox {
-        $DirectAssignments | Where-Object { $_.principal.provisionedPlans.service -contains "exchange" }
+        $DirectAssignments | Where-Object { $_.principal.provisionedPlans.capabilityStatus -eq 'Enabled' -and $_.principal.provisionedPlans.service -contains "exchange" }
         $testDescription = "
 Take attention on mail-enabled administrative accounts with $($FilteredAccessLevel) privileges.
 It's recommended to use mail forwarding to regular work account which allows to avoid direct mail access and phishing attacks on privileged user.

@@ -10,13 +10,20 @@
 
  .Example
   Test-MtCaMfaForAllUsers
-#>
 
-Function Test-MtCaMfaForAllUsers {
+.LINK
+    https://maester.dev/docs/commands/Test-MtCaMfaForAllUsers
+#>
+function Test-MtCaMfaForAllUsers {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '', Justification = 'AllUsers is a well known term for conditional access policies.')]
     [CmdletBinding()]
     [OutputType([bool])]
     param ()
+
+    if ( ( Get-MtLicenseInformation EntraID ) -eq "Free" ) {
+        Add-MtTestResultDetail -SkippedBecause NotLicensedEntraIDP1
+        return $null
+    }
 
     $policies = Get-MtConditionalAccessPolicy | Where-Object { $_.state -eq "enabled" }
     # Remove policies that require password change, as they are related to user risk and not MFA on signin
@@ -44,6 +51,7 @@ Function Test-MtCaMfaForAllUsers {
     } else {
         $testResult = "No conditional access policy requires multi-factor authentication for all users."
     }
+
     Add-MtTestResultDetail -Result $testResult -GraphObjects $policiesResult -GraphObjectType ConditionalAccess
 
     return $result

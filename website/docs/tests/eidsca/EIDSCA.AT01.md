@@ -16,6 +16,10 @@ Whether the Temporary Access Pass is enabled in the tenant.
 | **Severity** | High |
 
 ## How to fix
+
+[Microsoft Learn - Enable Temporary Access Pass](https://learn.microsoft.com/en-us/entra/identity/authentication/howto-authentication-temporary-access-pass#enable-the-temporary-access-pass-policy)
+
+### Details of configuration item
 | | |
 |-|-|
 | **Recommendation** | Use Temporary Access Pass for secure onboarding users (initial password replacement) and enforce MFA for registering security information in Conditional Access Policy. |

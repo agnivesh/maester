@@ -30,9 +30,10 @@
 
     This example shows how to use the Add-MtTestResultDetail function to add rich markdown content to the test results with deep links to the admin portal.
 
+.LINK
+    https://maester.dev/docs/commands/Add-MtTestResultDetail
 #>
-
-Function Add-MtTestResultDetail {
+function Add-MtTestResultDetail {
     [CmdletBinding()]
     param(
         # Brief description of what this test is checking.
@@ -52,18 +53,45 @@ Function Add-MtTestResultDetail {
         [Object[]] $GraphObjects,
 
         # The type of graph object, this will be used to show the right deeplink to the test results report.
-        [ValidateSet('ConditionalAccess', 'Users', 'DiagnosticSettings',
-            'Groups', 'IdentityProtection', 'AuthenticationMethod',
-            'AuthorizationPolicy', 'ConsentPolicy', 'Domains')]
+        [ValidateSet('AuthenticationMethod', 'AuthorizationPolicy', 'ConditionalAccess', 'ConsentPolicy',
+            'Devices', 'Domains', 'Groups', 'IdentityProtection', 'Users', 'UserRole'
+        )]
         [string] $GraphObjectType,
 
         # Pester test name
         # Use the test name from the Pester context by default
         [Parameter(Mandatory = $false)]
-        [string] $TestName = $____Pester.CurrentTest.ExpandedName
+        [string] $TestName = $____Pester.CurrentTest.ExpandedName,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('NotConnectedAzure', 'NotConnectedExchange', 'NotConnectedGraph', 'NotDotGovDomain', 'NotLicensedEntraIDP1', 'NotConnectedSecurityCompliance', 'NotConnectedTeams',
+            'NotLicensedEntraIDP2', 'NotLicensedEntraIDGovernance', 'NotLicensedEntraWorkloadID', 'NotLicensedExoDlp', "LicensedEntraIDPremium", 'NotSupported', 'Custom',
+            'NotLicensedMdo','NotLicensedMdoP1', 'AdvAudit'
+        )]
+        # Common reasons for why the test was skipped.
+        [string] $SkippedBecause,
+
+        [Parameter(Mandatory = $false)]
+        # A custom reason for why the test was skipped. Requires `-SkippedBecause Custom`.
+        [string] $SkippedCustomReason
     )
 
     $hasGraphResults = $GraphObjects -and $GraphObjectType
+
+    if ($SkippedBecause) {
+        if ($SkippedBecause -eq 'Custom') {
+            if ([string]::IsNullOrEmpty($SkippedCustomReason)) {
+                throw "SkippedBecause is set to 'Custom' but no SkippedCustomReason was provided."
+            }
+            $SkippedReason = $SkippedCustomReason
+        } else {
+            $SkippedReason = Get-MtSkippedReason $SkippedBecause
+        }
+
+        if ([string]::IsNullOrEmpty($Result)) {
+            $Result = "Skipped. $SkippedReason"
+        }
+    }
 
     if ([string]::IsNullOrEmpty($Description)) {
         # Check if a markdown file exists for the cmdlet and parse the content
@@ -78,7 +106,11 @@ Function Add-MtTestResultDetail {
 
             if (![string]::IsNullOrEmpty($Result)) {
                 # If a result was provided in the parameter insert it into the markdown content
-                $mdResult = $mdResult -replace "%TestResult%", $Result
+                if ($mdResult -match "%TestResult%") {
+                    $mdResult = $mdResult -replace "%TestResult%", $Result
+                } else {
+                    $mdResult = $Result
+                }
             }
 
             $Description = $mdDescription
@@ -94,6 +126,8 @@ Function Add-MtTestResultDetail {
     $testInfo = @{
         TestDescription = $Description
         TestResult      = $Result
+        TestSkipped     = $SkippedBecause
+        SkippedReason   = $SkippedReason
     }
 
     Write-MtProgress -Activity "Running tests" -Status $testName
@@ -106,5 +140,10 @@ Function Add-MtTestResultDetail {
             # Only set if we are running in the context of Maester
             $__MtSession.TestResultDetail[$testName] = $testInfo
         }
+    }
+
+    if ($SkippedBecause) {
+        #This needs to be set at the end.
+        Set-ItResult -Skipped -Because $SkippedReason
     }
 }

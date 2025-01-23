@@ -9,12 +9,13 @@ if (-not (Get-Module Pester -ListAvailable)) { Install-Module Pester -Scope Curr
 Import-Module Alt3.Docusaurus.Powershell
 Import-Module PlatyPS
 Import-Module Pester
+Import-Module DnsClient
 
 # Generate the command reference markdown
 $commandsIndexFile = "./website/docs/commands/readme.md"
 $readmeContent = Get-Content $commandsIndexFile  # Backup the readme.md since it will be deleted by New-DocusaurusHelp
 
-# Get all the filenames in the ./powershell/internal folder wihtout the extension
+# Get all the filenames in the ./powershell/internal folder without the extension
 $internalCommands = Get-ChildItem ./powershell/internal -Filter *.ps1 | ForEach-Object { $_.BaseName }
 
 New-DocusaurusHelp -Module ./powershell/Maester.psm1 -DocsFolder ./website/docs -NoPlaceHolderExamples -EditUrl https://github.com/maester365/maester/blob/main/powershell/public/ -Exclude $internalCommands

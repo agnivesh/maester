@@ -12,7 +12,7 @@
 RootModule = 'Maester.psm1'
 
 # Version number of this module.
-ModuleVersion = '0.0.125'
+ModuleVersion = '0.1.0'
 
 # Supported PSEditions
 CompatiblePSEditions = 'Core', 'Desktop'
@@ -21,16 +21,16 @@ CompatiblePSEditions = 'Core', 'Desktop'
 GUID = '502a7fe7-b1ae-4bf5-98db-00831b14ed6f'
 
 # Author of this module
-Author = 'Maester'
+Author = 'Maester Team'
 
 # Company or vendor of this module
-CompanyName = 'Maester'
+CompanyName = 'Maester Team'
 
 # Copyright statement for this module
-Copyright = 'Maester. All rights reserved.'
+Copyright = 'Maester Team. All rights reserved.'
 
 # Description of the functionality provided by this module
-Description = 'Pester based test automation framework to monitor your Microsoft 365 security configuration.'
+Description = 'Maester is an automation framework to assess and monitor your Microsoft 365 security configuration.'
 
 # Minimum version of the PowerShell engine required by this module
 PowerShellVersion = '5.1'
@@ -51,8 +51,12 @@ PowerShellVersion = '5.1'
 # ProcessorArchitecture = ''
 
 # Modules that must be imported into the global environment prior to importing this module
-RequiredModules = @(@{ModuleName = 'Microsoft.Graph.Authentication'; GUID = '883916f2-9184-46ee-b1f8-b6a2fb784cee'; ModuleVersion = '2.2.0'; },
-               @{ModuleName = 'Pester'; GUID = 'a699dea5-2c73-4616-a270-1f7abb777e71'; ModuleVersion = '5.5.0'; })
+<# Requires Pester 5.5.0 but that is not declared here due to potential conflicts with the version of Pester that is
+   pre-installed with Windows. See <https://pester.dev/docs/introduction/installation/#windows>. Pester will be updated
+   if necessary by Install-MaesterTests.
+#>
+RequiredModules = @( @{ModuleName = 'Microsoft.Graph.Authentication'; GUID = '883916f2-9184-46ee-b1f8-b6a2fb784cee'; ModuleVersion = '2.2.0'; }
+                     @{ModuleName = 'Pester'; GUID = 'a699dea5-2c73-4616-a270-1f7abb777e71'; ModuleVersion = '0.0.0'; } )
 
 # Assemblies that must be loaded prior to importing this module
 # RequiredAssemblies = @()
@@ -78,7 +82,7 @@ FunctionsToExport = 'Add-MtTestResultDetail', 'Clear-MtGraphCache', 'Connect-Mae
                'Get-MtUser', 'Get-MtRole',
                'Get-MtSession',
                'Install-MaesterTests', 'Invoke-Maester', 'Invoke-MtGraphRequest',
-               'Send-MtMail', 'Test-MtAppManagementPolicyEnabled',
+               'Send-MtMail', 'Send-MtTeamsMessage', 'Test-MtAppManagementPolicyEnabled',
                'Test-MtCaAllAppsExists', 'Test-MtCaApplicationEnforcedRestriction',
                'Test-MtCaBlockLegacyExchangeActiveSyncAuthentication',
                'Test-MtCaBlockLegacyOtherAuthentication',
@@ -90,6 +94,8 @@ FunctionsToExport = 'Add-MtTestResultDetail', 'Clear-MtGraphCache', 'Connect-Mae
                'Test-MtCaExclusionForDirectorySyncAccount',
                'Test-MtCaLicenseUtilization', 'Test-MtCaMfaForAdmin',
                'Test-MtCaMfaForAdminManagement', 'Test-MtCaMfaForAllUsers',
+               "Test-MtCaGroupsRestricted",
+               "Test-MtCaGap", "Test-MtCaReferencedGroupsExist",
                'Test-MtCaMfaForGuest', 'Test-MtCaMfaForRiskySignIn',
                'Test-MtCaRequirePasswordChangeForHighUserRisk',
                'Test-MtCaSecureSecurityInfoRegistration', 'Test-MtCisaDiagnosticSettings',
@@ -107,26 +113,69 @@ FunctionsToExport = 'Add-MtTestResultDetail', 'Clear-MtGraphCache', 'Connect-Mae
                'Test-MtCisaUnmanagedRoleAssignment', 'Test-MtCisaRequireActivationApproval',
                'Test-MtCisaAssignmentNotification', 'Test-MtCisaActivationNotification',
                'Test-MtCisaGuestUserAccess', 'Test-MtCisaGuestInvitation',
-               'Test-MtCisaAutoExternalForwarding',
+               'Test-MtCisaCrossTenantInboundDefault',
+               'Test-MtCisaAutoExternalForwarding', 'Test-MtCisaSmtpAuthentication',
+               'Test-MtCisaContactSharing', 'Test-MtCisaCalendarSharing',
+               'Test-MtCisaExternalSenderWarning', 'Test-MtCisaAntiSpamAllowList',
+               'Test-MtCisaAntiSpamSafeList', 'Test-MtCisaMailboxAuditing',
+               'Test-MtCisaSpfRestriction', 'Test-MtCisaSpfDirective', 'Test-MtCisaDkim',
+               'Test-MtCisaDmarcRecordExist', 'Test-MtCisaDmarcRecordReject',
+               'Test-MtCisaDmarcAggregateCisa', 'Test-MtCisaDmarcReport',
+               'Test-MtCisaDlp', 'Test-MtCisaDlpPii', 'Test-MtCisaDlpAlternate',
+               'Test-MtCisaDlpBaselineRule', 'Test-MtCisaAttachmentFilter',
+               'Test-MtCisaAttachmentFileType', 'Test-MtCisaEmailFilterAlternative',
+               'Test-MtCisaBlockExecutable', 'Test-MtCisaMalwareAction', 'Test-MtCisaMalwareZap',
+               'Test-MtCisaImpersonation', 'Test-MtCisaImpersonationTip', 'Test-MtCisaMailboxIntelligence',
+               'Test-MtCisaSpamFilter', 'Test-MtCisaSpamAction', 'Test-MtCisaSpamBypass',
+               'Test-MtCisaSpamAlternative', 'Test-MtCisaSafeLink', 'Test-MtCisaSafeLinkDownloadScan',
+               'Test-MtCisaSafeLinkClickTracking', 'Test-MtCisaExoAlert', 'Test-MtCisaExoAlertSiem',
+               'Test-MtCisaAuditLog', 'Test-MtCisaAuditLogPremium', 'Test-MtCisaAuditLogRetention',
+               'Get-MtExo', 'Clear-MtExoCache', 'Test-MtCisaSpoSharing', 'Test-MtCisaSpoSharingAllowedDomain',
+               'Test-MtCisCloudAdmin',
+               'Test-MtCisGlobalAdminCount',
+               'Test-MtCis365PublicGroup',
+               'Test-MtCisCalendarSharing',
+               'Test-MtCisSharedMailboxSignIn',
+               'Test-MtCisPasswordExpiry',
+               'Test-MtCisCustomerLockBox',
+               'Test-MtCisSafeLink',
+               'Test-MtCisAttachmentFilter',
+               'Test-MtCisInternalMalwareNotification',
+               'Test-MtCisSafeAttachment',
+               'Test-MtCisSafeAttachmentsAtpPolicy',
+               "Test-MtCisOutboundSpamFilterPolicy",
+               "Test-MtCisSafeAntiPhishingPolicy",
                'Test-MtConditionalAccessWhatIf',
                'Test-MtConnection',
-               'Test-MtEidscaAF01',
-               'Test-MtEidscaAF02', 'Test-MtEidscaAF03', 'Test-MtEidscaAF04',
-               'Test-MtEidscaAF05', 'Test-MtEidscaAF06', 'Test-MtEidscaAG01',
-               'Test-MtEidscaAG02', 'Test-MtEidscaAG03', 'Test-MtEidscaAM01',
-               'Test-MtEidscaAM02', 'Test-MtEidscaAM03', 'Test-MtEidscaAM04',
-               'Test-MtEidscaAM06', 'Test-MtEidscaAM07', 'Test-MtEidscaAM09',
-               'Test-MtEidscaAM10', 'Test-MtEidscaAP01', 'Test-MtEidscaAP04',
-               'Test-MtEidscaAP05', 'Test-MtEidscaAP06', 'Test-MtEidscaAP07',
-               'Test-MtEidscaAP08', 'Test-MtEidscaAP09', 'Test-MtEidscaAP10',
-               'Test-MtEidscaAP14', 'Test-MtEidscaAT01', 'Test-MtEidscaAT02',
-               'Test-MtEidscaAV01', 'Test-MtEidscaCP01', 'Test-MtEidscaCP03',
-               'Test-MtEidscaCP04', 'Test-MtEidscaCR01', 'Test-MtEidscaCR02',
-               'Test-MtEidscaCR03', 'Test-MtEidscaCR04', 'Test-MtEidscaPR01',
-               'Test-MtEidscaPR02', 'Test-MtEidscaPR03', 'Test-MtEidscaPR05',
-               'Test-MtEidscaPR06', 'Test-MtEidscaST08', 'Test-MtEidscaST09',
+               'Test-MtEidscaControl',
                'Test-MtPimAlertsExists', 'Test-MtPrivPermanentDirectoryRole',
-               'Update-MaesterTests', 'Compare-MtTestResult'
+               'Update-MaesterTests', 'Compare-MtTestResult',  'Get-MailAuthenticationRecord',
+               'ConvertFrom-MailAuthenticationRecordSpf', 'ConvertFrom-MailAuthenticationRecordMx',
+               'ConvertFrom-MailAuthenticationRecordDmarc', 'ConvertFrom-MailAuthenticationRecordDkim',
+               'Resolve-SpfRecord', 'Clear-MtDnsCache',
+               'Test-MtTeamsRestrictParticipantGiveRequestControl',
+               'Test-ORCA100',
+               'Test-ORCA101', 'Test-ORCA102', 'Test-ORCA103',
+               'Test-ORCA104', 'Test-ORCA105', 'Test-ORCA106',
+               'Test-ORCA107', 'Test-ORCA108',
+               'Test-ORCA109', 'Test-ORCA110', 'Test-ORCA111',
+               'Test-ORCA112', 'Test-ORCA113', 'Test-ORCA114',
+               'Test-ORCA115', 'Test-ORCA116', 'Test-ORCA118',
+               'Test-ORCA119', 'Test-ORCA120',
+               'Test-ORCA121', 'Test-ORCA123',
+               'Test-ORCA124', 'Test-ORCA139', 'Test-ORCA140',
+               'Test-ORCA141', 'Test-ORCA142', 'Test-ORCA143',
+               'Test-ORCA156', 'Test-ORCA158', 'Test-ORCA179',
+               'Test-ORCA180', 'Test-ORCA189',
+               'Test-ORCA205', 'Test-ORCA220', 'Test-ORCA221',
+               'Test-ORCA222', 'Test-ORCA223', 'Test-ORCA224',
+               'Test-ORCA225', 'Test-ORCA226', 'Test-ORCA227',
+               'Test-ORCA228', 'Test-ORCA229', 'Test-ORCA230',
+               'Test-ORCA231', 'Test-ORCA232',
+               'Test-ORCA233', 'Test-ORCA234', 'Test-ORCA235',
+               'Test-ORCA236', 'Test-ORCA237', 'Test-ORCA238',
+               'Test-ORCA239', 'Test-ORCA240', 'Test-ORCA241',
+               'Test-ORCA242', 'Test-ORCA243', 'Test-ORCA244'
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = @()
@@ -135,8 +184,8 @@ CmdletsToExport = @()
 # VariablesToExport = @()
 
 # Aliases to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no aliases to export.
-AliasesToExport = 'Invoke-Maester', 'Connect-Maester', 'Connect-MtMaester',
-               'Disconnect-Maester', 'Disconnect-MtMaester'
+AliasesToExport = 'Invoke-MtMaester', 'Connect-MtGraph', 'Connect-MtMaester',
+               'Disconnect-MtGraph', 'Disconnect-MtMaester'
 
 # DSC resources to export from this module
 # DscResourcesToExport = @()
@@ -187,4 +236,3 @@ HelpInfoURI = 'https://maester.dev/docs/commands/'
 # DefaultCommandPrefix = ''
 
 }
-

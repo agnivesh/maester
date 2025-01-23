@@ -10,12 +10,19 @@
 
  .Example
   Test-MtCaApplicationEnforcedRestriction
-#>
 
-Function Test-MtCaApplicationEnforcedRestriction {
+.LINK
+    https://maester.dev/docs/commands/Test-MtCaApplicationEnforcedRestriction
+#>
+function Test-MtCaApplicationEnforcedRestriction {
     [CmdletBinding()]
     [OutputType([bool])]
     param ()
+
+    if ( ( Get-MtLicenseInformation EntraID ) -eq "Free" ) {
+        Add-MtTestResultDetail -SkippedBecause NotLicensedEntraIDP1
+        return $null
+    }
 
     $policies = Get-MtConditionalAccessPolicy | Where-Object { $_.state -eq "enabled" }
 

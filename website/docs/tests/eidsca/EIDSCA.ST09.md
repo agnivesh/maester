@@ -16,6 +16,10 @@ Indicating whether or not a guest user can have access to Microsoft 365 groups c
 | **Severity** | Medium |
 
 ## How to fix
+
+[Microsoft Learn - Microsoft Entra cmdlets for configuring group settings](https://learn.microsoft.com/en-us/entra/identity/users/groups-settings-cmdlets#update-settings-at-the-directory-level)
+
+### Details of configuration item
 | | |
 |-|-|
 | **Recommendation** | Manages if guest accounts can access resources through Microsoft 365 Group membership and could break collaboration if you disable it. |

@@ -20,9 +20,12 @@
     Send-MtMail -MaesterResults $MaesterResults -Recipient john@contoso.com, sam@contoso.com -Subject 'Maester Results' -TestResultsUri "https://github.com/contoso/maester/runs/123456789"
 
     Sends an email with the summary of the Maester test results to two users along with the link to the detailed test results.
-#>
 
-Function Send-MtMail {
+.LINK
+    https://maester.dev/docs/commands/Send-MtMail
+#>
+function Send-MtMail {
+    [OutputType([System.Collections.Hashtable])]
     [CmdletBinding()]
     param(
         # The Maester test results returned from `Invoke-Pester -PassThru | ConvertTo-MtMaesterResult`
@@ -39,6 +42,9 @@ Function Send-MtMail {
         # Uri to the detailed test results page.
         [string] $TestResultsUri,
 
+        # Does not send the email, but outputs the body to use elsewhere
+        [switch] $CreateBodyOnly,
+
         # The user id of the sender of the mail. Defaults to the current user.
         # This is required when using application permissions.
         [string] $UserId
@@ -48,13 +54,15 @@ Function Send-MtMail {
         # Developer guide for editing the html report.
         - Authoring of the email template is done using Word. Open /powershell/assets/EmailTemplate.docx and make changes as needed
         - Select all and copy/paste the content into a new email in Outlook and send it to yourself
-        - When the email is recieved, view the source (either through Graph API, View Source in Outlook for Mac or save as .eml and open in a text editor)
+        - When the email is received, view the source (either through Graph API, View Source in Outlook for Mac or save as .eml and open in a text editor)
         - Copy the source (<html>..</html>) and paste it into the /powershell/assets/EmailTemplate.html file in the assets folder
         - Search for cid:image in the html and update the -replace commands in the script below.
     #>
-    if (!(Test-MtContext -SendMail)) { return }
+    if (! ($CreateBodyOnly)) {
+        if (!(Test-MtContext -SendMail)) { return }
 
-    if (!$Subject) { $Subject = "Maester Test Results" }
+        if (!$Subject) { $Subject = "Maester Test Results" }
+    }
 
     $emailTemplateFilePath = Join-Path -Path $PSScriptRoot -ChildPath '../assets/EmailTemplate.html'
     $emailTemplate = Get-Content -Path $emailTemplateFilePath -Raw
@@ -64,16 +72,26 @@ Function Send-MtMail {
     $imgFailedIcon = "https://maester.dev/img/test-result/icon-fail.png"
     $imgNotRunIcon = "https://maester.dev/img/test-result/icon-notrun.png"
 
-    $emailTemplate = $emailTemplate -replace "cid:image001.png@01DA7FCF.9FB97420", $imgMaesterLogo
-    $emailTemplate = $emailTemplate -replace "cid:image002.png@01DA7FCF.9FB97420", $imgMaesterLogo
-    $emailTemplate = $emailTemplate -replace "cid:image003.png@01DA7FCF.9FB97420", $imgPassedIcon
-    $emailTemplate = $emailTemplate -replace "cid:image004.png@01DA7FCF.9FB97420", $imgFailedIcon
-    $emailTemplate = $emailTemplate -replace "cid:image005.png@01DA7FCF.9FB97420", $imgNotRunIcon
+    $emailTemplate = $emailTemplate -replace "cid:image001.png@01DAC7D0.5D7D03D0", $imgMaesterLogo
+    $emailTemplate = $emailTemplate -replace "cid:image002.png@01DAC7D0.5D7D03D0", $imgMaesterLogo
+    $emailTemplate = $emailTemplate -replace "cid:image003.png@01DAC7D0.5D7D03D0", $imgPassedIcon
+    $emailTemplate = $emailTemplate -replace "cid:image004.png@01DAC7D0.5D7D03D0", $imgFailedIcon
+    $emailTemplate = $emailTemplate -replace "cid:image005.png@01DAC7D0.5D7D03D0", $imgNotRunIcon
+
+    $CurrentVersion = $MaesterResults.CurrentVersion
+    $LatestVersion = $MaesterResults.LatestVersion
+    $ModuleVersion =
+        if ($currentVersion -ne $latestVersion) {
+            "$currentVersion → Latest version: $latestVersion"
+        } else {
+            "$currentVersion"
+        }
 
     $notRunCount = $MaesterResults.SkippedCount
     if ([string]::IsNullOrEmpty($MaesterResults.SkippedCount)) { $notRunCount = "-" }
     $emailTemplate = $emailTemplate -replace "%TenantName%", $MaesterResults.TenantName
     $emailTemplate = $emailTemplate -replace "%TenantId%", $MaesterResults.TenantId
+    $emailTemplate = $emailTemplate -replace "%ModuleVersion%", $ModuleVersion
     $emailTemplate = $emailTemplate -replace "%TotalCount%", $MaesterResults.TotalCount
     $emailTemplate = $emailTemplate -replace "%PassedCount%", $MaesterResults.PassedCount
     $emailTemplate = $emailTemplate -replace "%FailedCount%", $MaesterResults.FailedCount
@@ -87,7 +105,6 @@ Function Send-MtMail {
         Failed = '<img src="https://maester.dev/img/test-result/pill-fail.png" height="25" alt="Failed"/>'
         NotRun = '<img src="https://maester.dev/img/test-result/pill-notrun.png" height="25" alt="Not Run"/>'
     }
-
 
     $table = "<table border='1' cellpadding='10' cellspacing='2' style='border-collapse: collapse; border-color: #f6f8fa;'><tr><th>Test Name</th><th>Status</th></tr>"
     $counter = 0
@@ -107,7 +124,6 @@ Function Send-MtMail {
         $testResultsLink = "<a href='$TestResultsUri'>View detailed test results</a>"
     }
     $emailTemplate = $emailTemplate -replace "%TestResultsLink%", $testResultsLink
-
 
     $mailRequestBody = @{
         message         = @{
@@ -137,6 +153,10 @@ Function Send-MtMail {
 
     Write-Verbose -Message "Uri: $sendMailUri"
     # Construct the message body
-    Invoke-MgGraphRequest -Method POST -Uri $sendMailUri -Body $mailRequestBody
-
+    if ($CreateBodyOnly) {
+        return $mailRequestBody
+    }
+    else {
+        Invoke-MgGraphRequest -Method POST -Uri $sendMailUri -Body $mailRequestBody
+    }
 }

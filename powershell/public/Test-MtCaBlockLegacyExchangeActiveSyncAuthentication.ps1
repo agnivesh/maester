@@ -11,12 +11,19 @@
 
  .Example
   Test-MtCaBlockLegacyExchangeActiveSyncAuthentication
-#>
 
-Function Test-MtCaBlockLegacyExchangeActiveSyncAuthentication {
+.LINK
+    https://maester.dev/docs/commands/Test-MtCaBlockLegacyExchangeActiveSyncAuthentication
+#>
+function Test-MtCaBlockLegacyExchangeActiveSyncAuthentication {
     [CmdletBinding()]
     [OutputType([bool])]
     param ()
+
+    if ( ( Get-MtLicenseInformation EntraID ) -eq "Free" ) {
+        Add-MtTestResultDetail -SkippedBecause NotLicensedEntraIDP1
+        return $null
+    }
 
     $policies = Get-MtConditionalAccessPolicy | Where-Object { $_.state -eq "enabled" }
 

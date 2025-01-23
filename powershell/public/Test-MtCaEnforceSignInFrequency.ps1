@@ -10,15 +10,23 @@
 
  .Example
   Test-MtCaEnforceSignInFrequency
-#>
 
-Function Test-MtCaEnforceSignInFrequency {
+.LINK
+    https://maester.dev/docs/commands/Test-MtCaEnforceSignInFrequency
+#>
+function Test-MtCaEnforceSignInFrequency {
     [CmdletBinding()]
     [OutputType([bool])]
     param (
         [Parameter()]
+        # Ignore device filters for compliant devices.
         [switch]$AllDevices
     )
+
+    if ( ( Get-MtLicenseInformation EntraID ) -eq "Free" ) {
+        Add-MtTestResultDetail -SkippedBecause NotLicensedEntraIDP1
+        return $null
+    }
 
     $policies = Get-MtConditionalAccessPolicy | Where-Object { $_.state -eq "enabled" }
 

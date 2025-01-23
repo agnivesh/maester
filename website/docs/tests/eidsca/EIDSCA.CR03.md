@@ -10,17 +10,21 @@ Specifies whether reviewers will receive reminder emails
 
 | | |
 |-|-|
-| **Name** | notifyReviewers |
+| **Name** | remindersEnabled |
 | **Control** | Consent Framework - Admin Consent Request |
 | **Description** | Represents the policy for enabling or disabling the Azure AD admin consent workflow. The admin consent workflow allows users to request access for apps that they wish to use and that require admin authorization before users can use the apps to access organizational data.  |
 | **Severity** |  |
 
 ## How to fix
+
+
+
+### Details of configuration item
 | | |
 |-|-|
 | **Recommendation** |  |
 | **Configuration** | policies/adminConsentRequestPolicy |
-| **Setting** | `notifyReviewers` |
+| **Setting** | `remindersEnabled` |
 | **Recommended Value** | 'true' |
 | **Default Value** |  |
 | **Graph API Docs** | [adminConsentRequestPolicy resource type - Microsoft Graph v1.0 - Microsoft Learn](https://learn.microsoft.com/en-us/graph/api/resources/adminconsentrequestpolicy) |
