@@ -8,8 +8,16 @@
         [string] $SearchBase
     )
 
+    function ConvertFrom-LdapInteger {
+        param([object] $Value)
+
+        $number = 0
+        if ([int]::TryParse([string]$Value, [ref]$number)) { return $number }
+        return $null
+    }
+
     if ([string]::IsNullOrWhiteSpace($SearchBase)) { $SearchBase = (Get-MtLdapRootDse -Connection $Connection).DefaultNamingContext }
-    $attributes = @('distinguishedName', 'name', 'sAMAccountName', 'userAccountControl', 'adminCount', 'homeDirectory', 'badPasswordTime', 'lastLogonTimestamp', 'lockoutTime', 'logonHours', 'userWorkstations', 'managedBy', 'manager', 'pwdLastSet', 'profilePath', 'scriptPath', 'objectSid', 'sIDHistory', 'servicePrincipalName', 'whenCreated', 'whenChanged', 'isCriticalSystemObject')
+    $attributes = @('distinguishedName', 'name', 'sAMAccountName', 'userAccountControl', 'adminCount', 'homeDirectory', 'badPasswordTime', 'lastLogonTimestamp', 'lockoutTime', 'logonHours', 'userWorkstations', 'managedBy', 'manager', 'pwdLastSet', 'profilePath', 'scriptPath', 'objectSid', 'sIDHistory', 'servicePrincipalName', 'whenCreated', 'whenChanged', 'isCriticalSystemObject', 'primaryGroupID', 'msDS-SupportedEncryptionTypes', 'msDS-AllowedToDelegateTo')
     $entries = @(Invoke-MtLdapSearch -Connection $Connection -SearchBase $SearchBase -Scope Subtree -Filter '(&(objectClass=user)(!(objectClass=computer)))' -Attributes $attributes)
     return @($entries | ForEach-Object {
         $uac = if ($null -ne $_.userAccountControl) { ConvertFrom-MtLdapUserAccountControl -UserAccountControl ([int]$_.userAccountControl) } else { $null }
@@ -23,6 +31,9 @@
             ScriptPath = [string]$_.scriptPath; Sid = $_.objectSid; SidHistory = @($_.sIDHistory | Where-Object { $null -ne $_ }); ServicePrincipalName = [string[]]@($_.servicePrincipalName | Where-Object { $null -ne $_ })
             TrustedForDelegation = if ($null -ne $uac) { $uac.TrustedForDelegation } else { $null }; TrustedToAuthForDelegation = if ($null -ne $uac) { $uac.TrustedToAuthForDelegation } else { $null }; UseDESKeyOnly = if ($null -ne $uac) { $uac.UseDesKeyOnly } else { $null }
             UserAccountControl = if ($null -ne $_.userAccountControl) { [int]$_.userAccountControl } else { $null }; Created = $_.whenCreated; Modified = $_.whenChanged; IsCriticalSystemObject = if ($null -ne $_.isCriticalSystemObject) { [bool]$_.isCriticalSystemObject } else { $null }
+            PrimaryGroupId = $_.primaryGroupID
+            SupportedEncryptionTypes = ConvertFrom-LdapInteger -Value $_.'msDS-SupportedEncryptionTypes'
+            AllowedToDelegateTo = [string[]]@($_.'msDS-AllowedToDelegateTo' | Where-Object { $null -ne $_ })
         }
     })
 }

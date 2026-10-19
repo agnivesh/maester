@@ -10,7 +10,7 @@
 
     try {
         if ([string]::IsNullOrWhiteSpace($SearchBase)) { $SearchBase = (Get-MtLdapRootDse -Connection $Connection).DefaultNamingContext }
-        $attributes = @('distinguishedName', 'name', 'sAMAccountName', 'groupType', 'adminCount', 'whenCreated', 'whenChanged', 'managedBy', 'objectSid', 'sIDHistory', 'isCriticalSystemObject')
+        $attributes = @('distinguishedName', 'name', 'sAMAccountName', 'groupType', 'adminCount', 'whenCreated', 'whenChanged', 'managedBy', 'objectSid', 'sIDHistory', 'isCriticalSystemObject', 'memberOf')
         $entries = @(Invoke-MtLdapSearch -Connection $Connection -SearchBase $SearchBase -Scope Subtree -Filter '(objectClass=group)' -Attributes $attributes)
         return @($entries | ForEach-Object {
             $groupType = [long]$_.groupType
@@ -20,6 +20,7 @@
                 GroupCategory = if ($groupType -band 0x80000000L) { 'Security' } else { 'Distribution' }; GroupScope = $scope
                 AdminCount = $_.adminCount; Created = $_.whenCreated; Modified = $_.whenChanged; ManagedBy = [string]$_.managedBy
                 Sid = $_.objectSid; SidHistory = @($_.sIDHistory | Where-Object { $null -ne $_ }); IsCriticalSystemObject = if ($null -ne $_.isCriticalSystemObject) { [bool]$_.isCriticalSystemObject } else { $null }
+                MemberOf = ConvertTo-MtLdapMemberOfList -Entry $_
             }
         })
     }

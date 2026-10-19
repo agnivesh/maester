@@ -30,19 +30,45 @@
         return $OwnerDistinguishedName
     }
 
+    function Get-DomainUpdateRevision {
+        param([string] $DomainDistinguishedName)
+
+        $updateDn = "CN=ActiveDirectoryUpdate,CN=DomainUpdates,CN=System,$DomainDistinguishedName"
+        try {
+            $update = Invoke-MtLdapSearch -Connection $Connection -SearchBase $updateDn -Scope Base -Filter '(objectClass=*)' -Attributes @('revision') -PageSize 0 | Select-Object -First 1
+            $revision = 0
+            if ([int]::TryParse([string]$update.revision, [ref]$revision)) { return $revision }
+        }
+        catch {
+            Write-Verbose "Could not read the domain update revision from '$updateDn': $($_.Exception.Message)"
+        }
+
+        return $null
+    }
+
+    function ConvertFrom-LdapBoolean {
+        param([object] $Value)
+
+        switch ([string]$Value) {
+            'TRUE' { return $true }
+            'FALSE' { return $false }
+            default { return $null }
+        }
+    }
+
     try {
         $rootDse = Get-MtLdapRootDse -Connection $Connection
         if ([string]::IsNullOrWhiteSpace($SearchBase)) {
             $SearchBase = $rootDse.DefaultNamingContext
         }
 
-        $attributes = @('distinguishedName', 'name', 'objectSid', 'lockoutDuration', 'lockoutThreshold', 'maxPwdAge', 'minPwdAge', 'minPwdLength', 'ms-DS-MachineAccountQuota', 'pwdProperties', 'pwdHistoryLength', 'rIDAvailablePool', 'objectVersion', 'whenCreated', 'whenChanged', 'msDS-Behavior-Version', 'fSMORoleOwner', 'msDS-AllowedDNSSuffixes')
+        $attributes = @('distinguishedName', 'name', 'objectSid', 'lockoutDuration', 'lockoutThreshold', 'maxPwdAge', 'minPwdAge', 'minPwdLength', 'ms-DS-MachineAccountQuota', 'pwdProperties', 'pwdHistoryLength', 'rIDAvailablePool', 'objectVersion', 'whenCreated', 'whenChanged', 'msDS-Behavior-Version', 'fSMORoleOwner', 'msDS-AllowedDNSSuffixes', 'msDS-ExpirePasswordsOnSmartCardOnlyAccounts')
         $entry = Invoke-MtLdapSearch -Connection $Connection -SearchBase $SearchBase -Scope Base -Filter '(objectClass=domainDNS)' -Attributes $attributes -PageSize 0 | Select-Object -First 1
         if ($null -eq $entry) {
             return $null
         }
 
-        $crossRefs = @(Invoke-MtLdapSearch -Connection $Connection -SearchBase "CN=Partitions,$($rootDse.ConfigurationNamingContext)" -Scope OneLevel -Filter '(objectClass=crossRef)' -Attributes @('nCName', 'nETBIOSName') -PageSize 0)
+        $crossRefs = @(Invoke-MtLdapSearch -Connection $Connection -SearchBase "CN=Partitions,$($rootDse.ConfigurationNamingContext)" -Scope OneLevel -Filter '(objectClass=crossRef)' -Attributes @('nCName', 'nETBIOSName', 'systemFlags') -PageSize 0)
         $crossRef = $crossRefs | Where-Object { $_.nCName -eq $SearchBase } | Select-Object -First 1
 
         $infrastructure = Invoke-MtLdapSearch -Connection $Connection -SearchBase "CN=Infrastructure,$SearchBase" -Scope Base -Filter '(objectClass=infrastructureUpdate)' -Attributes @('fSMORoleOwner') -PageSize 0 | Select-Object -First 1
@@ -75,6 +101,9 @@
             RIDMaster               = Resolve-FsmoOwner -OwnerDistinguishedName ([string]$ridManager.fSMORoleOwner)
             NetBIOSName             = [string]$crossRef.nETBIOSName
             AllowedDnsSuffixes      = [string[]]@(@($entry.'msDS-AllowedDNSSuffixes') | Where-Object { $null -ne $_ })
+            ExpirePasswordsOnSmartCardOnlyAccounts = ConvertFrom-LdapBoolean -Value $entry.'msDS-ExpirePasswordsOnSmartCardOnlyAccounts'
+            DomainUpdateRevision    = Get-DomainUpdateRevision -DomainDistinguishedName $SearchBase
+            ForestDomainCount       = Get-MtLdapForestDomainCount -CrossRef $crossRefs
         }
     }
     catch {
