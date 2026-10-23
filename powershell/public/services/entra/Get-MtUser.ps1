@@ -90,6 +90,29 @@
             }
         } elseif ( $UserType -in @("BreakGlass", "EmergencyAccess") ) {
             Write-Verbose "Getting $UserType users from the tenant."
+            # Accounts configured in maester-config.json win over detection. Errors are not caught here:
+            # a configured account that cannot be read must stop the check instead of being replaced.
+            $ConfiguredAccounts = @(Get-MtEmergencyAccessAccount)
+            if ( $ConfiguredAccounts.Count -gt 0 ) {
+                Write-Verbose "Using $($ConfiguredAccounts.Count) emergency access account(s) from the Maester configuration."
+                foreach ( $ConfiguredAccount in $ConfiguredAccounts ) {
+                    if ( $ConfiguredAccount.Type -eq 'group' ) {
+                        $RawResponse = Invoke-MtGraphRequest -RelativeUri "groups/$($ConfiguredAccount.ObjectId)/members" -Select id, userPrincipalName, userType -OutputType Hashtable -DisablePaging -ErrorAction Stop
+                        $TmpUsers = if ($null -ne $RawResponse -and $RawResponse.ContainsKey('value')) { @($RawResponse['value']) } else { @() }
+                    } else {
+                        $TmpUsers = @(Invoke-MtGraphRequest -RelativeUri "users/$($ConfiguredAccount.ObjectId)" -Select id, userPrincipalName, userType -OutputType Hashtable -ErrorAction Stop)
+                    }
+                    foreach ( $TmpUser in $TmpUsers ) {
+                        $TmpUser.userType = "EmergencyAccess"
+                        $Users.Add($TmpUser) | Out-Null
+                    }
+                }
+                if ( $Users.Count -gt $Count ) {
+                    $Users.RemoveRange($Count, $Users.Count - $Count)
+                }
+                return $Users
+            }
+
             Write-Verbose "Get all Conditional Access policies."
             # Get all policies (the state of policy does not have to be enabled)
             $CAPolicies = Get-MtConditionalAccessPolicy | Where-Object { -not $_.conditions.applications.includeAuthenticationContextClassReferences }

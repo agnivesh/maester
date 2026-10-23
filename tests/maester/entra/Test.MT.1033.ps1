@@ -12,7 +12,8 @@
     param()
 
     $regularUsers = @(Get-MtUser -Count 5 -UserType 'Member' | Where-Object { $_ })
-    $emergencyAccessUsers = @(Get-MtUser -Count 5 -UserType 'EmergencyAccess' | Where-Object { $_ })
+    # Not limited to five: every emergency access account must stay out of the sample.
+    $emergencyAccessUsers = @(Get-MtUser -Count 100 -UserType 'EmergencyAccess' | Where-Object { $_ })
     $emergencyAccessIds = @($emergencyAccessUsers | ForEach-Object { $_.id })
     $regularUsers = @($regularUsers | Where-Object { $_.id -notin $emergencyAccessIds })
 
