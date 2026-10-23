@@ -11,7 +11,9 @@ Maester includes tests that verify your emergency access accounts are properly e
 
 ## Why Configure Emergency Access Accounts?
 
-By default, Maester attempts to auto-detect emergency access accounts by looking for users or groups that are consistently excluded from all Conditional Access policies. However, explicitly configuring your emergency access accounts provides:
+When no emergency access accounts are configured, the tests that need them detect them from your Conditional Access policies. Maester takes the users or groups that are excluded from the most policies. This detection trusts the policy exclusions: an account that is excluded from more policies than your real emergency access accounts takes their place, whether by mistake or on purpose.
+
+When you configure the accounts, the tests use exactly the accounts you list, and detection is not used. If a configured account can't be found or read, the test reports an error instead of falling back to detection. Configuring your emergency access accounts provides:
 
 - **Accurate testing** - Ensures the exact accounts you intend as emergency access are being validated
 - **Clear documentation** - Your configuration serves as documentation of your emergency access strategy
@@ -155,9 +157,21 @@ Get-MgGroup -Filter "displayName eq 'Emergency Access Accounts'" | Select-Object
 
 The following Maester tests use the Emergency Access Accounts configuration:
 
-| Test ID | Description |
-|---------|-------------|
-| MT.1005 | All Conditional Access policies are configured to exclude at least one emergency/break glass account or group |
+| Test ID | Description | Use of the configured accounts |
+|---------|-------------|--------------------------------|
+| MT.1005 | All Conditional Access policies are configured to exclude at least one emergency/break glass account or group | Checks that the policies exclude them |
+| MT.1024 | Entra recommendations should be completed | Only for the sign-in risk, user risk and admin MFA recommendations: passes when the configured accounts are the only resources still flagged |
+| MT.1029 | Stale accounts are not assigned to privileged roles | Leaves them out of the affected assignments |
+| MT.1030 | Eligible role assignments on Control Plane are in use by administrators | Leaves them out of the affected assignments |
+| MT.1031 | Privileged role on Control Plane are managed by PIM only | Leaves them out of the affected assignments |
+| MT.1032 | Limited number of Global Admins are assigned | Leaves them out of the affected assignments |
+| MT.1033 | Users should be blocked from using legacy authentication | Leaves them out of the users that are checked |
+| MT.1034 | Emergency access users should not be blocked | Checks that no Conditional Access policy applies to them |
+| MT.1111 | High privileged user should be linked to an identity | Leaves them out of the unlinked users |
+| MT.1191 | Break-glass accounts should be excluded from the Compliant Network Conditional Access policy | Checks that the policy excludes them; skipped when none are configured |
+| CIS.M365.5.3.1 | Ensure privileged role assignments are activated and not assigned | Accepts permanent Global Administrator assignments for them, up to two |
+
+Without a configuration, MT.1029 to MT.1034 detect the accounts from the Conditional Access policies, as described above.
 
 ## Best Practices
 
