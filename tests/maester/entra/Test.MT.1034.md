@@ -1,6 +1,6 @@
 Emergency access (break-glass) accounts must stay usable when everything else fails, so Conditional Access policies should not block them.
 
-Maester evaluates a sign-in for up to five emergency access accounts (the ones set in `EmergencyAccessAccounts` in maester-config.json; if none are set, the users or group most often excluded from Conditional Access policies) with the Conditional Access What If API. One result is created per account (MT.1034.&lt;n&gt;). The check fails when any policy applies to the account.
+Maester evaluates a sign-in for up to five emergency access accounts (the ones set in `EmergencyAccessAccounts` in maester-config.json; the test is skipped when none are set) with the Conditional Access What If API. One result is created per account (MT.1034.&lt;n&gt;). The check fails when any policy applies to the account.
 
 ### Remediation action:
 

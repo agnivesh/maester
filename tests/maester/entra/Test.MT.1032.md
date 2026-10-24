@@ -1,6 +1,6 @@
 A limited number of Global Administrators should be assigned.
 
-This test reads the Privileged Identity Management security alert **There are too many global administrators** (`TooManyGlobalAdminsAssignedToTenantAlert`) from Microsoft Graph and passes when the alert is not active or has no affected role assignments. Emergency access (break glass) accounts are excluded from the affected items.
+This test reads the Privileged Identity Management security alert **There are too many global administrators** (`TooManyGlobalAdminsAssignedToTenantAlert`) from Microsoft Graph and passes when the alert is not active or has no affected role assignments. Emergency access (break glass) accounts, set in `EmergencyAccessAccounts` in maester-config.json, are excluded from the affected items. The test is skipped when none are set.
 
 #### Remediation action
 

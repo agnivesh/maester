@@ -131,7 +131,7 @@ Tenant-wide settings that tests read with `Get-MtSetting`. Maester knows these:
 
 | Setting | Type | Default | Used by |
 | --- | --- | --- | --- |
-| `EmergencyAccessAccounts` | array | none | Conditional Access checks. See [Emergency access accounts](./emergency-access-accounts.md). |
+| `EmergencyAccessAccounts` | array | none | MT.1005, MT.1024, MT.1029 to MT.1034, MT.1111, MT.1191 and CIS.M365.5.3.1. MT.1005, MT.1029 to MT.1034 and MT.1191 are skipped when it is empty. See [Emergency access accounts](./emergency-access-accounts.md). |
 | `DataverseEnvironmentUrl` | string | | Copilot Studio checks. |
 | `GitHubOrganization` | string | | GitHub checks. |
 | `GitHubApiBaseUri` | string | `https://api.github.com` | GitHub checks. |
