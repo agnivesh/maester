@@ -1,4 +1,4 @@
-BeforeAll {
+﻿BeforeAll {
     Import-Module "$PSScriptRoot/../../../Maester.psd1" -Force -WarningAction SilentlyContinue
 
     # The five built-in families (design section 10) run offline: Graph is forced connected through the run
@@ -103,6 +103,7 @@ Describe 'Built-in families' {
                 @{ id = '00000000-0000-0000-0000-0000000000b1'; userPrincipalName = 'breakglass1@contoso.com'; userType = 'EmergencyAccess' }
                 @{ id = '00000000-0000-0000-0000-0000000000b2'; userPrincipalName = 'breakglass2@contoso.com'; userType = 'EmergencyAccess' }
             )
+            Mock -ModuleName Maester Assert-MtEmergencyAccessConfigured { }
             Mock -ModuleName Maester Get-MtUser { $script:members } -ParameterFilter { $UserType -eq 'Member' }
             Mock -ModuleName Maester Get-MtUser { $script:emergency } -ParameterFilter { $UserType -eq 'EmergencyAccess' }
             Mock -ModuleName Maester Test-MtCaWIFBlockLegacyAuthentication { $UserId -ne '00000000-0000-0000-0000-000000000002' }
@@ -207,6 +208,7 @@ Describe 'Family instance sources that return nothing or fail' {
     BeforeAll {
         Mock -ModuleName Maester Get-MtShippedMaesterConfig { [pscustomobject]@{} }
         Mock -ModuleName Maester Invoke-MtGraphRequest { @{ value = @() } }
+        Mock -ModuleName Maester Assert-MtEmergencyAccessConfigured { }
         Mock -ModuleName Maester Get-MtUser { }
     }
 
@@ -226,6 +228,7 @@ Describe 'Family instance sources that return nothing or fail' {
         @{ Id = 'MT.1024' }, @{ Id = 'MT.1033' }, @{ Id = 'MT.1034' }, @{ Id = 'MT.1060' }
     ) {
         Mock -ModuleName Maester Invoke-MtGraphRequest { throw 'Graph is down' }
+        Mock -ModuleName Maester Assert-MtEmergencyAccessConfigured { }
         Mock -ModuleName Maester Get-MtUser { throw 'Graph is down' }
         $driftRoot = Join-Path $TestDrive 'failing-drift'
         $null = New-Item -ItemType Directory -Path (Join-Path $driftRoot 'one') -Force
