@@ -171,7 +171,7 @@ The following Maester tests use the Emergency Access Accounts configuration:
 | MT.1191 | Break-glass accounts should be excluded from the Compliant Network Conditional Access policy | Checks that the policy excludes them; skipped when none are configured |
 | CIS.M365.5.3.1 | Ensure privileged role assignments are activated and not assigned | Accepts permanent Global Administrator assignments for them, up to two |
 
-Without a configuration, MT.1005 and MT.1029 to MT.1034 are skipped. MT.1024, MT.1111 and CIS.M365.5.3.1 still run, but nothing is exempted.
+Without a configuration, MT.1005, MT.1029 to MT.1034 and MT.1191 are skipped. MT.1024, MT.1111 and CIS.M365.5.3.1 still run, but nothing is exempted.
 
 ## Best Practices
 
