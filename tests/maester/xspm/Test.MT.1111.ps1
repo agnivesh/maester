@@ -58,10 +58,11 @@ $UnlinkedPrivilegedUsers = $UnifiedIdentityInfo `
             } `
         | Sort-Object Classification, AccountDisplayName
 
-    $EmergencyAccessAccounts = Get-MtSetting -Name 'EmergencyAccessAccounts'
-    if ($EmergencyAccessAccounts -and $EmergencyAccessAccounts.Count -gt 0) {
+    # The configured accounts can be given by object id or as a group, so use the resolved users.
+    $EmergencyAccessUpns = @(Get-MtUser -Count 100 -UserType EmergencyAccess | ForEach-Object { $_.userPrincipalName })
+    if ($EmergencyAccessUpns.Count -gt 0) {
         Write-Verbose "Excluding Emergency Access Accounts from the test results ..."
-        $UnlinkedPrivilegedUsers = $UnlinkedPrivilegedUsers | Where-Object { $_.AccountUpn -notin $EmergencyAccessAccounts.UserPrincipalName }
+        $UnlinkedPrivilegedUsers = $UnlinkedPrivilegedUsers | Where-Object { $_.AccountUpn -notin $EmergencyAccessUpns }
     }
 
     $Severity = "Low"
