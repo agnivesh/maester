@@ -28,11 +28,15 @@
     [string[]]$FilteredAccessLevel = $null,
 
     [Parameter(ValueFromPipelineByPropertyName = $true, Position = 2)]
-    # Specify break glass accounts to exclude. Defaults to the EmergencyAccessAccounts in the Maester configuration, or to detection based on Conditional Access policy exclusions when none are configured.
+    # Specify break glass accounts to exclude. Defaults to the EmergencyAccessAccounts in the Maester configuration; the test is skipped when none are configured.
     [object[]]$FilteredBreakGlass = (Get-MtUser -Count 100 -UserType EmergencyAccess)
   )
 
   begin {
+    if (-not $PSBoundParameters.ContainsKey('FilteredBreakGlass')) {
+      Assert-MtEmergencyAccessConfigured
+    }
+
     $mgContext = Get-MgContext
     $tenantId = $mgContext.TenantId
 

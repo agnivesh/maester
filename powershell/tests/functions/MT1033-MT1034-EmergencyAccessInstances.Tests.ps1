@@ -9,10 +9,26 @@
             [pscustomobject]@{ Data = @{ id = '11111111-2222-3333-4444-555555555555'; userPrincipalName = 'breakglass@contoso.com' } }
         }
 
+        # Stands in for the internal helper; the tests below make it skip.
+        function Assert-MtEmergencyAccessConfigured { }
+
         function New-FakeUser {
             [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'Test helper creates an in-memory fixture and has no external side effects.')]
             param([string] $Name, [string] $UserType = 'Member')
             @{ id = "id-$Name"; userPrincipalName = "$Name@contoso.com"; userType = $UserType }
+        }
+    }
+
+    Context 'When no emergency access accounts are configured' {
+        BeforeAll {
+            Mock Assert-MtEmergencyAccessConfigured { throw 'test skipped' }
+            Mock Get-MtUser { }
+        }
+
+        It 'MT.1033 and MT.1034 skip before reading any user' {
+            { Get-MtCaWhatIfRegularUserInstance } | Should -Throw 'test skipped'
+            { Get-MtCaWhatIfEmergencyAccessInstance } | Should -Throw 'test skipped'
+            Should -Invoke Get-MtUser -Exactly 0
         }
     }
 
@@ -80,16 +96,6 @@
                 $Description -like '*#### Remediation action*policies that apply to breakglass@contoso.com:*Block legacy*### Related links*' -and
                 $Result -like 'Found 1 Conditional Access policy that applies to breakglass@contoso.com.*cannot be used when other access is lost*' -and
                 $Result -notlike '*Block legacy*'
-            }
-        }
-
-        It 'Should say the account was inferred when nothing is configured' {
-            Mock Get-MtSetting { $null }
-            Mock Test-MtConditionalAccessWhatIf { @() }
-            Test-MtCaWhatIfEmergencyAccessNotBlocked -Instance (Get-BreakGlassInstance) | Should -BeTrue
-            Should -Invoke Add-MtTestResultDetail -Exactly 1 -ParameterFilter {
-                $Result -like '*No EmergencyAccessAccounts are configured, so Maester inferred this*' -and
-                $Result -like '*check why it is excluded*'
             }
         }
     }

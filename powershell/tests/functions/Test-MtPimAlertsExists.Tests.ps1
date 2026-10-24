@@ -180,7 +180,17 @@
         $script:testResult | Should -Not -Match 'Emergency Admin'
     }
 
+    It 'skips the test when no break-glass accounts are passed in and none are configured' {
+        Mock -ModuleName Maester Get-MtUser { }
+        Mock -ModuleName Maester Invoke-MtGraphRequest { throw 'No alert request is expected.' }
+        Mock -ModuleName Maester Assert-MtEmergencyAccessConfigured { throw 'test skipped' }
+
+        { Test-MtPimAlertsExists -AlertId RedundantAssignmentAlert } | Should -Throw 'test skipped'
+        Should -Invoke Invoke-MtGraphRequest -ModuleName Maester -Exactly 0
+    }
+
     It 'excludes every configured break-glass account when none are passed in' {
+        Mock -ModuleName Maester Assert-MtEmergencyAccessConfigured { }
         $firstIncident = New-PimAlertIncident -AssigneeId 'break-glass-1' -AssigneeDisplayName 'Emergency Admin 1' -AssigneeUserPrincipalName 'emergency1@contoso.com'
         $secondIncident = New-PimAlertIncident -AssigneeId 'break-glass-2' -AssigneeDisplayName 'Emergency Admin 2' -AssigneeUserPrincipalName 'emergency2@contoso.com'
         Mock -ModuleName Maester Invoke-MtGraphRequest {

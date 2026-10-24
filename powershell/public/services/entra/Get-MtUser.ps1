@@ -11,7 +11,8 @@
     The number of users to retrieve. Default is 1.
 
     .PARAMETER UserType
-    The type of users to retrieve. Default is Member. Valid values are Member, Guest, Admin.
+    The type of users to retrieve. Default is Member. Valid values are Member, Guest, Admin, EmergencyAccess and BreakGlass.
+    EmergencyAccess and BreakGlass return the accounts and group members listed under EmergencyAccessAccounts in maester-config.json, and nothing when none are configured.
 
     .PARAMETER MemberOfRole
     The role the users are member of. Default is None. Valid values are Global Administrator, Application Administrator, Authentication Administrator, Billing Administrator, Cloud Application Administrator, Conditional Access Administrator, Exchange Administrator, Helpdesk Administrator, Password Administrator, Privileged Authentication Administrator, Privileged Role Administrator, Security Administrator, SharePoint Administrator, User Administrator.
@@ -90,8 +91,8 @@
             }
         } elseif ( $UserType -in @("BreakGlass", "EmergencyAccess") ) {
             Write-Verbose "Getting $UserType users from the tenant."
-            # Accounts configured in maester-config.json win over detection. Errors are not caught here:
-            # a configured account that cannot be read must stop the check instead of being replaced.
+            # Only the accounts in maester-config.json count. Errors are not caught here: a configured
+            # account that cannot be read must stop the check instead of being left out.
             $ConfiguredAccounts = @(Get-MtEmergencyAccessAccount)
             if ( $ConfiguredAccounts.Count -gt 0 ) {
                 Write-Verbose "Using $($ConfiguredAccounts.Count) emergency access account(s) from the Maester configuration."
@@ -113,86 +114,7 @@
                 return $Users
             }
 
-            Write-Verbose "Get all Conditional Access policies."
-            # Get all policies (the state of policy does not have to be enabled)
-            $CAPolicies = Get-MtConditionalAccessPolicy | Where-Object { -not $_.conditions.applications.includeAuthenticationContextClassReferences }
-
-            # Check which user object Id or group object Id is excluded from the most policies
-            $PossibleEmergencyAccessUsers = $CAPolicies.conditions.users.excludeUsers | Group-Object -NoElement | Sort-Object -Property Count -Descending | Select-Object -First 2
-            if ($PossibleEmergencyAccessUsers.Count -eq 2) {
-                # Check if the number of excluded policies is the same for all possible users
-                $EmergencyAccessUsers = $PossibleEmergencyAccessUsers | Group-Object -Property Count | Sort-Object -Property Name -Descending | Select-Object -First 1 -ExpandProperty Group
-                $EmergencyAccessUsers = $EmergencyAccessUsers | Select-Object -ExpandProperty Name -Unique
-            }
-            $PossibleEmergencyAccessGroups = $CAPolicies.conditions.users.excludeGroups | Group-Object -NoElement | Sort-Object -Property Count -Descending | Select-Object -First 2
-            if ($PossibleEmergencyAccessGroups.Count -eq 2) {
-                # Check if the number of excluded policies is the same for all possible users
-                $EmergencyAccessGroups = $PossibleEmergencyAccessGroups | Group-Object -Property Count | Sort-Object -Property Name -Descending | Select-Object -First 1 -ExpandProperty Group
-                $EmergencyAccessGroups = $EmergencyAccessGroups | Select-Object -ExpandProperty Name -Unique
-            }
-            # If the number of excluded users is higher than the number of excluded groups, check the user object GUID
-            $EmergencyAccessUsersCount = $CApolicies.conditions.users.excludeUsers | Where-Object { $_ -in $EmergencyAccessUsers } | Measure-Object | Select-Object -ExpandProperty Count
-            $EmergencyAccessGroupsCount = $CApolicies.conditions.users.excludeGroups | Where-Object { $_ -in $EmergencyAccessGroups } | Measure-Object | Select-Object -ExpandProperty Count
-            if ( $EmergencyAccessUsersCount -gt $EmergencyAccessGroupsCount ) {
-                # Handling Emergency Access Users
-                foreach ( $EmergencyAccessUser in $EmergencyAccessUsers ) {
-                    try {
-                        $TmpUsers = Invoke-MtGraphRequest -RelativeUri "users/$EmergencyAccessUser" -Select id, userPrincipalName, userType -OutputType Hashtable
-                        if ( $TmpUsers.ContainsKey('userType') ) {
-                            Write-Verbose "Setting userType to $UserType for $(($TmpUsers | Measure-Object).count) users that are member of EmergencyAccess."
-                            $TmpUsers | ForEach-Object {
-                                $_.userType = "EmergencyAccess"
-                                $Users.Add($_) | Out-Null
-
-                                if ($Users.Count -ge $Count) {
-                                    Write-Verbose "Found $Count $UserType users."
-                                    break
-                                }
-                            }
-                        }
-                    } catch {
-                        Write-Warning -Message "Unable to retrieve user with GUID: ${EmergencyAccessUser}"
-                    }
-                }
-            } else {
-                # Handling Emergency Access Groups
-                Write-Verbose "Emergency access group: $EmergencyAccessGroups"
-                foreach ( $EmergencyAccessGroup in $EmergencyAccessGroups ) {
-                    # Skip null or empty group IDs that can occur when CA policies have no group exclusions
-                    if ([string]::IsNullOrEmpty($EmergencyAccessGroup)) {
-                        Write-Verbose "Skipping null or empty emergency access group ID."
-                        continue
-                    }
-                    # Fetch only the first page to avoid timeout on large groups. Fix for https://github.com/maester365/maester/issues/1227
-                    # -DisablePaging causes Invoke-MtGraphRequest to return the raw Graph response wrapper
-                    # ({ value: [...], @odata.context: '...', ... }) rather than the unwrapped member objects.
-                    # Extract the members array from the value property before counting or iterating.
-                    try {
-                        $RawResponse = Invoke-MtGraphRequest -RelativeUri "groups/$EmergencyAccessGroup/members" -Select id, userPrincipalName, userType -OutputType Hashtable -DisablePaging
-                        $TmpUsers = if ($null -ne $RawResponse -and $RawResponse.ContainsKey('value')) { @($RawResponse['value']) } else { @() }
-                        # Reject groups that are too large to be emergency access groups. If the first page already has
-                        # many members it is likely a broad corporate group rather than an emergency access group.
-                        # See https://github.com/maester365/maester/issues/1227
-                        $MemberCount = $TmpUsers.Count
-                        if ($MemberCount -gt 20) {
-                            Write-Warning "Get-MtUser: Skipping group '$EmergencyAccessGroup' — it has $MemberCount members, which is too many to be an emergency access group. Emergency access groups should have only 1–2 members. Review your Conditional Access policy exclusions to confirm the correct group is being excluded."
-                            continue
-                        }
-                        Write-Verbose "Setting userType to EmergencyAccess for $MemberCount users that are members of group '$EmergencyAccessGroup'."
-                        $TmpUsers | ForEach-Object {
-                            $_.userType = "EmergencyAccess"
-                            $Users.Add($_) | Out-Null
-
-                            if ($Users.Count -ge $Count) {
-                                Write-Verbose "Found $Count $UserType users."
-                                break
-                            }
-                        }
-                    } catch {
-                        Write-Warning -Message "Unable to retrieve members for group with GUID: ${EmergencyAccessGroup}. Error: $_"
-                    }
-                }
-            }
+            Write-Verbose "No emergency access accounts are configured in the Maester configuration."
         } else {
             if ( $UserType -eq "Member" ) {
                 $queryFilter = "userType eq 'Member'"

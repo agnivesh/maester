@@ -11,6 +11,7 @@
     [OutputType([pscustomobject])]
     param()
 
+    Assert-MtEmergencyAccessConfigured
     $regularUsers = @(Get-MtUser -Count 5 -UserType 'Member' | Where-Object { $_ })
     # Not limited to five: every emergency access account must stay out of the sample.
     $emergencyAccessUsers = @(Get-MtUser -Count 100 -UserType 'EmergencyAccess' | Where-Object { $_ })
