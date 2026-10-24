@@ -180,6 +180,23 @@
         $script:testResult | Should -Not -Match 'Emergency Admin'
     }
 
+    It 'excludes every configured break-glass account when none are passed in' {
+        $firstIncident = New-PimAlertIncident -AssigneeId 'break-glass-1' -AssigneeDisplayName 'Emergency Admin 1' -AssigneeUserPrincipalName 'emergency1@contoso.com'
+        $secondIncident = New-PimAlertIncident -AssigneeId 'break-glass-2' -AssigneeDisplayName 'Emergency Admin 2' -AssigneeUserPrincipalName 'emergency2@contoso.com'
+        Mock -ModuleName Maester Invoke-MtGraphRequest {
+            return New-PimAlert -AlertIncidents @($firstIncident, $secondIncident)
+        }
+        # Like the real function, return no more users than -Count asks for.
+        Mock -ModuleName Maester Get-MtUser {
+            $accounts = @([PSCustomObject]@{ Id = 'break-glass-1' }, [PSCustomObject]@{ Id = 'break-glass-2' })
+            return @($accounts | Select-Object -First $Count)
+        }
+
+        $result = Test-MtPimAlertsExists -AlertId RedundantAssignmentAlert
+
+        $result.numberOfAffectedItems | Should -Be 0
+    }
+
     It 'skips the test when the PIM v3 request fails' {
         Mock -ModuleName Maester Invoke-MtGraphRequest {
             throw 'PIM v3 is unavailable'
