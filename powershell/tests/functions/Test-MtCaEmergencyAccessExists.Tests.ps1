@@ -469,6 +469,26 @@
             InModuleScope Maester { Test-MtCaEmergencyAccessExists -WarningAction SilentlyContinue } | Should -BeFalse
             $script:capturedResult | Should -BeLike '*none could be resolved*'
         }
+
+        It 'Should fail when only some of the configured emergency access entries can be resolved' {
+            $policy = Get-PolicyWithUserExclusion -UserIds @($emergencyUserId1)
+            $config = @(
+                @{ Id = $emergencyUserId1; Type = "User" }
+                @{ UserPrincipalName = "invalid-identifier"; Type = "User" }
+            )
+            $script:capturedResult = $null
+
+            Mock -ModuleName Maester Get-MtConditionalAccessPolicy { return $policy }
+            Mock -ModuleName Maester Get-MtSetting { return $config }
+            Mock -ModuleName Maester Invoke-MtGraphRequest { return @{ id = $emergencyUserId1; displayName = "Emergency User 1" } }
+            Mock -ModuleName Maester Add-MtTestResultDetail {
+                param($Result)
+                $script:capturedResult = $Result
+            }
+
+            InModuleScope Maester { Test-MtCaEmergencyAccessExists -WarningAction SilentlyContinue } | Should -BeFalse
+            $script:capturedResult | Should -BeLike '*could not be resolved*'
+        }
     }
 
     Context "Agent Identity and Service Principal policies" {

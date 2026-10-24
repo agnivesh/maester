@@ -96,6 +96,7 @@
         }
     }
     Write-Verbose "Emergency access accounts or groups defined in the Maester config: $($EmergencyAccessAccounts.Count) entries"
+    $ResolvedEntryCount = $ResolvedEmergencyAccessAccounts.Count
     $UniqueResolvedEmergencyAccessAccounts = @()
     $ResolvedEmergencyAccessAccountKeys = @{}
     foreach ($account in $ResolvedEmergencyAccessAccounts) {
@@ -113,6 +114,12 @@
 
     if ($EmergencyAccessAccountsUserCount -eq 0 -and $EmergencyAccessAccountsGroupCount -eq 0) {
         Add-MtTestResultDetail -Result "Emergency access accounts or groups are configured in maester-config.json, but none could be resolved. Verify the configured Id or UserPrincipalName values."
+        return $false
+    }
+
+    # A configured account that cannot be resolved must not be left out of the check.
+    if ($ResolvedEntryCount -lt @($EmergencyAccessAccounts).Count) {
+        Add-MtTestResultDetail -Result "Some emergency access accounts or groups configured in maester-config.json could not be resolved. Verify the configured Id or UserPrincipalName values."
         return $false
     }
 
