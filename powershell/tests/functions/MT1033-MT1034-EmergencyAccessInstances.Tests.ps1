@@ -5,6 +5,10 @@
         . (Join-Path $testsRoot 'Test.MT.1033.ps1')
         . (Join-Path $testsRoot 'Test.MT.1034.ps1')
 
+        function Get-BreakGlassInstance {
+            [pscustomobject]@{ Data = @{ id = '11111111-2222-3333-4444-555555555555'; userPrincipalName = 'breakglass@contoso.com' } }
+        }
+
         function New-FakeUser {
             [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'Test helper creates an in-memory fixture and has no external side effects.')]
             param([string] $Name, [string] $UserType = 'Member')
@@ -49,6 +53,44 @@
             $instances.Count | Should -Be 1
             $instances[0].Data.userPrincipalName | Should -Be 'breakglass@contoso.com'
             $instances[0].Title | Should -BeLike '*breakglass@contoso.com*'
+        }
+    }
+
+    Context 'MT.1034 result text' {
+        BeforeAll {
+            function Get-MtTestResultTemplate { }
+            function Get-GraphObjectMarkdown { }
+            Mock Get-MtTestResultTemplate { [pscustomobject]@{ Description = "Overview.`n`n#### Remediation action`n`nExclude the account.`n`n### Related links`n`n* A link" } }
+            Mock Get-GraphObjectMarkdown { '  - [Block legacy](https://example.test/policy)' }
+            Mock Add-MtTestResultDetail { }
+        }
+
+        It 'Should pass without extra text when the account is configured and no policy applies' {
+            Mock Get-MtSetting { @(@{ Type = 'User'; UserPrincipalName = 'breakglass@contoso.com' }) }
+            Mock Test-MtConditionalAccessWhatIf { @() }
+            Test-MtCaWhatIfEmergencyAccessNotBlocked -Instance (Get-BreakGlassInstance) | Should -BeTrue
+            Should -Invoke Add-MtTestResultDetail -Exactly 1 -ParameterFilter { $Result -like 'Well done*' -and $Result -notlike '*inferred*' }
+        }
+
+        It 'Should list the blocking policies under the remediation action, not in the result' {
+            Mock Get-MtSetting { @(@{ Type = 'User'; UserPrincipalName = 'breakglass@contoso.com' }) }
+            Mock Test-MtConditionalAccessWhatIf { @([pscustomobject]@{ displayName = 'Block legacy' }) }
+            Test-MtCaWhatIfEmergencyAccessNotBlocked -Instance (Get-BreakGlassInstance) | Should -BeFalse
+            Should -Invoke Add-MtTestResultDetail -Exactly 1 -ParameterFilter {
+                $Description -like '*#### Remediation action*policies that apply to breakglass@contoso.com:*Block legacy*### Related links*' -and
+                $Result -like 'Found 1 Conditional Access policy that applies to breakglass@contoso.com.*cannot be used when other access is lost*' -and
+                $Result -notlike '*Block legacy*'
+            }
+        }
+
+        It 'Should say the account was inferred when nothing is configured' {
+            Mock Get-MtSetting { $null }
+            Mock Test-MtConditionalAccessWhatIf { @() }
+            Test-MtCaWhatIfEmergencyAccessNotBlocked -Instance (Get-BreakGlassInstance) | Should -BeTrue
+            Should -Invoke Add-MtTestResultDetail -Exactly 1 -ParameterFilter {
+                $Result -like '*No EmergencyAccessAccounts are configured, so Maester inferred this*' -and
+                $Result -like '*check why it is excluded*'
+            }
         }
     }
 }
