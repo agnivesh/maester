@@ -143,7 +143,7 @@ if ($testFiles.Count -eq 0) {
     $config = New-PesterConfiguration
     $config.TestResult.Enabled = $true
     $coverageOutputPath = Join-Path $resultRoot "CodeCoverage.xml"
-    $config.CodeCoverage.Enabled      = $true
+    $config.CodeCoverage.Enabled      = $env:EXP_NO_INSTRUMENTATION -ne 'true'
     $config.CodeCoverage.OutputFormat = 'JaCoCo'
     $config.CodeCoverage.OutputPath   = $coverageOutputPath
     # Scope coverage to module source directories only (exclude tests/).

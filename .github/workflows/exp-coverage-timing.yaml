@@ -1,0 +1,62 @@
+# Throwaway timing experiment. Never merge.
+name: exp-coverage-timing
+
+on:
+  push:
+    branches: ["exp/ci-coverage-timing"]
+
+permissions:
+  contents: read
+
+jobs:
+  timing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [A-coverage, B-no-coverage, C-combined-no-instrumentation, D-no-coverage-throttle4]
+        rep: [1, 2]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install PowerShell dependencies
+        shell: pwsh
+        run: |
+          Install-Module Pester -MinimumVersion 5.7.1 -MaximumVersion 5.7.1 -Force -SkipPublisherCheck -Scope CurrentUser -AllowClobber
+          Install-Module PSFramework -Force -Scope CurrentUser -AllowClobber
+          Install-Module PSModuleDevelopment -Force -Scope CurrentUser -AllowClobber
+          Install-Module Microsoft.Graph.Authentication -MinimumVersion 2.27.0 -Force -Scope CurrentUser -AllowClobber
+
+      - name: Run Pester tests (${{ matrix.variant }}, rep ${{ matrix.rep }})
+        id: pester
+        shell: pwsh
+        env:
+          PESTER_COVERAGE: ${{ (matrix.variant == 'A-coverage' || matrix.variant == 'C-combined-no-instrumentation') && 'true' || 'false' }}
+          EXP_NO_INSTRUMENTATION: ${{ matrix.variant == 'C-combined-no-instrumentation' && 'true' || 'false' }}
+          PESTER_SKIP_OS_INDEPENDENT: "false"
+          PESTER_SKIP_GOLDEN: "true"
+        run: |
+          $sw = [System.Diagnostics.Stopwatch]::StartNew()
+          if ('${{ matrix.variant }}' -eq 'D-no-coverage-throttle4') {
+            ./powershell/tests/pester.ps1 -ThrottleLimit 4
+          } else {
+            ./powershell/tests/pester.ps1
+          }
+          $sw.Stop()
+          "seconds=$([int]$sw.Elapsed.TotalSeconds)" >> $env:GITHUB_OUTPUT
+
+      - name: Summarize
+        if: always()
+        shell: pwsh
+        run: |
+          $tests = 0
+          foreach ($file in Get-ChildItem TestResults -Filter '*.xml' -ErrorAction SilentlyContinue) {
+            if ($file.Name -eq 'CodeCoverage.xml') { continue }
+            $head = (Get-Content $file.FullName -TotalCount 5) -join ' '
+            if ($head -match '<testsuites[^>]*\stests="(\d+)"') { $tests += [int]$Matches[1] }
+            elseif ($head -match '<test-results[^>]*\stotal="(\d+)"') { $tests += [int]$Matches[1] }
+          }
+          "EXPRESULT variant=${{ matrix.variant }} rep=${{ matrix.rep }} seconds=${{ steps.pester.outputs.seconds }} tests=$tests xmlfiles=$((Get-ChildItem TestResults -Filter '*.xml' -ErrorAction SilentlyContinue).Count) cpus=$([Environment]::ProcessorCount)" | Tee-Object -Append $env:GITHUB_STEP_SUMMARY
